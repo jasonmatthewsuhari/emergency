@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import DeckGL from '@deck.gl/react'
@@ -10,6 +10,7 @@ import type { MapRef } from 'react-map-gl/mapbox'
 import mapboxgl from 'mapbox-gl'
 import 'mapbox-gl/dist/mapbox-gl.css'
 import AgencyDemoPanel from '@/components/AgencyDemoPanel'
+import BillboardListingPanel from '@/components/BillboardListingPanel'
 import AreaConfirmDialog from '@/components/AreaConfirmDialog'
 import BillboardStudioPanel from '@/components/BillboardStudioPanel'
 import DashboardOverlay from '@/components/DashboardOverlay'
@@ -19,16 +20,13 @@ import StreetViewPanel from '@/components/StreetViewPanel'
 import StreetViewCursor from '@/components/StreetViewCursor'
 import { makeBuildingLayers } from '@/layers/BuildingLayer'
 import { makeBillboardLayers } from '@/layers/BillboardLayer'
-import { makeSelectionLayer, makeSelectionMaskLayer } from '@/layers/SelectionLayer'
 import CrowdLayer from '@/components/CrowdLayer'
-import BillboardMeshLayer from '@/components/BillboardMeshLayer'
-import OohBillboardMeshLayer from '@/components/OohBillboardMeshLayer'
+import { makeSelectionLayer, makeSelectionMaskLayer } from '@/layers/SelectionLayer'
 import { makeStreetFixtureLayers } from '@/layers/StreetFixtureLayer'
 import { makeTrafficFlowLayers } from '@/layers/TrafficFlowLayer'
 import { makeCircleCoords, haversineKm } from '@/lib/geoUtils'
-import { fetchTrafficDensity, fetchRoads } from '@/lib/overpass'
-import { spawnAgentsInRadius, spawnAgentsFromTraffic, spawnAgentsOnRoads } from '@/lib/spawnAgents'
-import { createBehaviors, tickAgents } from '@/lib/agentBehaviors'
+import { spawnAgentsInRadius, spawnAgentsOnRoads } from '@/lib/spawnAgents'
+import { createBehavior, createBehaviors, tickAgents } from '@/lib/agentBehaviors'
 import type {
   AgentBehavior,
   AgentCapture,
@@ -42,6 +40,7 @@ import type {
   PedestrianAgent,
   PedestrianInterviewSession,
   SceneResponseApiResponse,
+  RoadKind,
   RoadSegment,
   StreetFixture,
   TrafficPoint,
@@ -164,33 +163,31 @@ const DEMOGRAPHIC_DEFS = [
 function detectBillboardSightings(
   agents: PedestrianAgent[],
   billboards: BillboardPlacement[],
+  oohPoints: OohMapPoint[],
   activeCooldowns: Set<string>,
 ): Array<{ agentId: string; agentName: string; billboardId: string; billboardName: string }> {
   const results: Array<{ agentId: string; agentName: string; billboardId: string; billboardName: string }> = []
 
   for (const agent of agents) {
     const lngScale = SIGHTING_LNG_SCALE * Math.cos(agent.position.lat * Math.PI / 180)
+
     for (const billboard of billboards) {
       const pairKey = `${agent.id}:${billboard.id}`
       if (activeCooldowns.has(pairKey)) continue
 
-      const dx = (billboard.position.lng - agent.position.lng) * lngScale  // East, meters
-      const dy = (billboard.position.lat - agent.position.lat) * SIGHTING_LAT_SCALE  // North, meters
+      const dx = (billboard.position.lng - agent.position.lng) * lngScale
+      const dy = (billboard.position.lat - agent.position.lat) * SIGHTING_LAT_SCALE
       const distM = Math.sqrt(dx * dx + dy * dy)
 
-      // Visibility range scales with billboard width (larger boards visible from further)
       const maxRangeM = Math.min(Math.max(billboard.widthM * 5, 50), 90)
       if (distM > maxRangeM) continue
 
-      // Compass bearing from agent to billboard (0=North, clockwise), matches agent heading convention
       const bearingToBoard = (Math.atan2(dx, dy) * 180 / Math.PI + 360) % 360
 
-      // Billboard must be within agent's forward FOV (±60°)
       let agentAngleDiff = Math.abs(bearingToBoard - agent.heading)
       if (agentAngleDiff > 180) agentAngleDiff = 360 - agentAngleDiff
       if (agentAngleDiff > 60) continue
 
-      // Agent must be on the front face of the billboard (within ±90° of billboard's facing direction)
       const bearingFromBoard = (bearingToBoard + 180) % 360
       let boardAngleDiff = Math.abs(bearingFromBoard - billboard.heading)
       if (boardAngleDiff > 180) boardAngleDiff = 360 - boardAngleDiff
@@ -198,9 +195,37 @@ function detectBillboardSightings(
 
       results.push({ agentId: agent.id, agentName: agent.name, billboardId: billboard.id, billboardName: billboard.name })
     }
+
+    // OOH inventory points — no facing direction known, so only apply agent FOV + distance checks
+    for (const pt of oohPoints) {
+      const pairKey = `${agent.id}:${pt.id}`
+      if (activeCooldowns.has(pairKey)) continue
+
+      const dx = (pt.position.lng - agent.position.lng) * lngScale
+      const dy = (pt.position.lat - agent.position.lat) * SIGHTING_LAT_SCALE
+      const distM = Math.sqrt(dx * dx + dy * dy)
+
+      if (distM > 60) continue
+
+      const bearingToBoard = (Math.atan2(dx, dy) * 180 / Math.PI + 360) % 360
+      let agentAngleDiff = Math.abs(bearingToBoard - agent.heading)
+      if (agentAngleDiff > 180) agentAngleDiff = 360 - agentAngleDiff
+      if (agentAngleDiff > 60) continue
+
+      results.push({ agentId: agent.id, agentName: agent.name, billboardId: pt.id, billboardName: pt.mediaTypeLabel })
+    }
   }
 
   return results
+}
+
+function bearingBetween(from: { lat: number; lng: number }, to: { lat: number; lng: number }): number {
+  const dLng = (to.lng - from.lng) * (Math.PI / 180)
+  const lat1 = from.lat * (Math.PI / 180)
+  const lat2 = to.lat * (Math.PI / 180)
+  const y = Math.sin(dLng) * Math.cos(lat2)
+  const x = Math.cos(lat1) * Math.sin(lat2) - Math.sin(lat1) * Math.cos(lat2) * Math.cos(dLng)
+  return (Math.atan2(y, x) * (180 / Math.PI) + 360) % 360
 }
 
 const STANDARD_STYLE_CONFIG: Array<[string, unknown]> = [
@@ -210,11 +235,11 @@ const STANDARD_STYLE_CONFIG: Array<[string, unknown]> = [
   ['showPointOfInterestLabels', false],
   ['showPointOfInterestIcons', false],
   ['densityPointOfInterestLabels', 0],
-  ['lightPreset', 'day'],
-  ['colorBuildings', '#d8d1c3'],
-  ['colorLand', '#ece9df'],
-  ['colorRoads', '#f8f4ea'],
-  ['colorWater', '#6fa8c8'],
+  ['lightPreset', 'dusk'],
+  ['colorBuildings', '#c4bdb2'],
+  ['colorLand', '#a8a39a'],
+  ['colorRoads', '#9e9890'],
+  ['colorWater', '#3d6e8c'],
 ]
 
 function applyStandardStyleConfig(map: mapboxgl.Map, useCustomBuildings: boolean) {
@@ -320,6 +345,86 @@ function generateSyntheticTraffic(center: LatLng, radiusKm: number): TrafficPoin
   return points
 }
 
+function roadsFromMapboxTiles(map: mapboxgl.Map): RoadSegment[] {
+  const classWeight: Record<string, number> = {
+    motorway: 0.5, trunk: 0.6, primary: 0.8, secondary: 0.75, tertiary: 0.7,
+    street: 0.65, street_limited: 0.55, pedestrian: 1.0, path: 0.9, service: 0.5,
+  }
+  const classKind: Record<string, RoadKind> = {
+    pedestrian: 'pedestrian', path: 'pedestrian', primary: 'primary', trunk: 'primary',
+    motorway: 'primary', secondary: 'secondary', tertiary: 'secondary',
+  }
+  try {
+    const bounds = map.getBounds()
+    if (!bounds) return []
+    const w = bounds.getWest(), e = bounds.getEast()
+    const s = bounds.getSouth(), n = bounds.getNorth()
+
+    const inView = (f: mapboxgl.MapboxGeoJSONFeature) => {
+      if (f.geometry?.type !== 'LineString') return false
+      return (f.geometry as GeoJSON.LineString).coordinates.some(
+        ([lng, lat]) => lng >= w && lng <= e && lat >= s && lat <= n
+      )
+    }
+
+    // querySourceFeatures works with Mapbox Standard style; filter to viewport only
+    let features = map.querySourceFeatures('composite', { sourceLayer: 'road' }).filter(inView)
+
+    // Fallback: classic style with explicit road line layers
+    if (features.length === 0) {
+      const style = map.getStyle()
+      const roadLayerIds = (style?.layers ?? [])
+        .filter(l => l.type === 'line' && (l as { 'source-layer'?: string })['source-layer'] === 'road')
+        .map(l => l.id)
+      if (roadLayerIds.length > 0) {
+        features = map.queryRenderedFeatures({ layers: roadLayerIds }).filter(inView)
+      }
+    }
+
+    return features
+      .filter(f => f.geometry?.type === 'LineString')
+      .map((f, idx) => {
+        const cls = (f.properties?.class ?? '') as string
+        return {
+          id: `mb-${f.id ?? idx}`,
+          path: (f.geometry as GeoJSON.LineString).coordinates.map(([lng, lat]) => ({ lat, lng })),
+          kind: (classKind[cls] ?? 'residential') as RoadKind,
+          weight: classWeight[cls] ?? 0.5,
+        }
+      })
+      .filter(r => r.path.length >= 2)
+      .slice(0, 500)
+  } catch { return [] }
+}
+
+function trafficFromMapboxTiles(map: mapboxgl.Map): TrafficPoint[] {
+  try {
+    const style = map.getStyle()
+    if (!style?.layers) return []
+    const poiLayerIds = style.layers
+      .filter(l => {
+        const sl = (l as { 'source-layer'?: string })['source-layer']
+        return sl === 'poi_label' || sl === 'landmark_label'
+      })
+      .map(l => l.id)
+    if (poiLayerIds.length === 0) return []
+    const catWeight = (cat: string): number => {
+      if (/transit|station|subway|bus/.test(cat)) return 1.0
+      if (/food|restaurant|cafe|bar/.test(cat)) return 0.85
+      if (/shop|retail|store/.test(cat)) return 0.75
+      if (/hotel/.test(cat)) return 0.65
+      return 0.5
+    }
+    return map.queryRenderedFeatures({ layers: poiLayerIds })
+      .filter(f => f.geometry.type === 'Point')
+      .map((f, idx) => {
+        const [lng, lat] = (f.geometry as GeoJSON.Point).coordinates
+        const cat = ((f.properties?.category_en ?? f.properties?.type ?? '') as string).toLowerCase()
+        return { id: `mb-poi-${f.id ?? idx}`, position: { lat, lng }, weight: catWeight(cat), category: 'transit' as TrafficPoint['category'] }
+      })
+  } catch { return [] }
+}
+
 function generateSyntheticRoads(center: LatLng, radiusKm: number): RoadSegment[] {
   const lngScale = Math.cos((center.lat * Math.PI) / 180)
   const latDeg = radiusKm / 110.574
@@ -363,12 +468,13 @@ export default function MapCanvas({ focusArea, countryIso }: { focusArea?: { lat
   const [oohTotalPoints, setOohTotalPoints] = useState(0)
   const [oohStatus, setOohStatus] = useState('Loading OOH inventory...')
   const [selectedOohPointId, setSelectedOohPointId] = useState<string | null>(null)
+  const [oohClickPos, setOohClickPos] = useState<{ x: number; y: number } | null>(null)
   const [buildings, setBuildings] = useState<Building[]>([])
   const [buildingStatus, setBuildingStatus] = useState('Loading editable building context...')
   const [useCustomBuildings, setUseCustomBuildings] = useState(false)
   const [billboards, setBillboards] = useState<BillboardPlacement[]>(INITIAL_BILLBOARDS)
   const [selectedBillboardId, setSelectedBillboardId] = useState<string | null>(INITIAL_BILLBOARDS[0]?.id ?? null)
-  const [activeBillboardTool, setActiveBillboardTool] = useState<'select' | 'place'>('select')
+  const [appliedCreative, setAppliedCreative] = useState<string>('/mock.png')
   const [sceneCapture, setSceneCapture] = useState<CapturedSceneImage | null>(null)
   const [captureStatus, setCaptureStatus] = useState('No scene captured yet.')
   const [quickResponse, setQuickResponse] = useState<SceneResponseApiResponse | null>(null)
@@ -379,8 +485,14 @@ export default function MapCanvas({ focusArea, countryIso }: { focusArea?: { lat
   const [animationTime, setAnimationTime] = useState(0)
   const agentsRef = useRef<PedestrianAgent[]>([])
   const behaviorsRef = useRef<AgentBehavior[]>([])
+  const spawnRotateRef = useRef<{ lat: number; lng: number; startX: number; heading: number } | null>(null)
+  const billboardRotateRef = useRef<{ id: string; startX: number } | null>(null)
   const roadsRef = useRef<RoadSegment[]>([])
+  const trafficPointsRef = useRef<TrafficPoint[]>([])
+  const pendingAgentSpawnRef = useRef(false)
+  const [agentVersion, setAgentVersion] = useState(0)
   const billboardsRef = useRef<BillboardPlacement[]>(INITIAL_BILLBOARDS)
+  const oohPointsRef = useRef<OohMapPoint[]>([])
   const sightingCooldownRef = useRef<Record<string, number>>({})
   const [sightingNotifications, setSightingNotifications] = useState<BillboardSighting[]>([])
   const pendingInterviewsRef = useRef<Array<{ agentId: string; agentName: string; billboardId: string; billboardName: string }>>([])
@@ -391,16 +503,40 @@ export default function MapCanvas({ focusArea, countryIso }: { focusArea?: { lat
   const [trafficPoints, setTrafficPoints] = useState<TrafficPoint[]>([])
   const [roads, setRoads] = useState<RoadSegment[]>([])
   roadsRef.current = roads
+  trafficPointsRef.current = trafficPoints
   const [trafficStatus, setTrafficStatus] = useState('Select an area to see traffic flow.')
   const [flowTime, setFlowTime] = useState(0)
   const [streetFixtureStatus, setStreetFixtureStatus] = useState('Loading street fixtures...')
   const [trafficPhaseTime, setTrafficPhaseTime] = useState(() => Math.floor(Date.now() / 1000))
   const [streetViewLocation, setStreetViewLocation] = useState<LatLng | null>(null)
   const [streetViewHover, setStreetViewHover] = useState<{ x: number; y: number } | null>(null)
+  const [cursorCoord, setCursorCoord] = useState<LatLng | null>(null)
   const [fps, setFps] = useState(0)
+  const [showTrafficLines, setShowTrafficLines] = useState(true)
 
   const contextArea = selectedArea ?? FALLBACK_AREA
   const selectedBillboard = billboards.find(billboard => billboard.id === selectedBillboardId) ?? null
+
+  const cursorBillboard = useMemo((): BillboardPlacement | null => {
+    if (activeTool !== 'builder' || !cursorCoord) return null
+    return {
+      id: '__cursor_preview__',
+      name: 'Preview',
+      position: cursorCoord,
+      widthM: 12,
+      heightM: 5,
+      clearanceM: 6,
+      heading: 90,
+      format: 'digital',
+      material: 'digital-day',
+      creativeText: 'NEW LAUNCH',
+      primaryColor: '#ffcf5c',
+      secondaryColor: '#111318',
+      brightness: 75,
+      weeklyReach: 64000,
+      mediaUrl: appliedCreative ?? undefined,
+    }
+  }, [activeTool, cursorCoord, appliedCreative])
 
   const loadingProgress = useMemo(() => {
     let p = 0
@@ -440,25 +576,39 @@ export default function MapCanvas({ focusArea, countryIso }: { focusArea?: { lat
     () => {
       const base = [
         ...(useCustomBuildings ? makeBuildingLayers(buildings) : []),
-        ...(selectedArea ? makeTrafficFlowLayers(trafficPoints, roads, flowTime) : []),
+        ...(selectedArea && showTrafficLines ? makeTrafficFlowLayers(trafficPoints, roads, flowTime) : []),
         ...makeStreetFixtureLayers(streetFixtures, trafficPhaseTime),
         ...makeBillboardLayers(billboards, selectedBillboardId, setSelectedBillboardId),
+        ...(cursorBillboard ? makeBillboardLayers([cursorBillboard], null, () => {}, 0.5) : []),
         ...(pendingArea ?? selectedArea ? [makeSelectionLayer((pendingArea ?? selectedArea)!, SELECTION_RADIUS_KM)] : []),
+        new ScatterplotLayer<OohMapPoint>({
+          id: 'ooh-inventory-halo',
+          data: oohPoints,
+          getPosition: (p) => [p.position.lng, p.position.lat, 0],
+          getRadius: 12,
+          radiusMinPixels: 8,
+          radiusMaxPixels: 22,
+          radiusUnits: 'meters',
+          getFillColor: (p) => { const c = OOH_DOT_COLOR[p.mediaTypeCode] ?? [200, 210, 220]; return [c[0], c[1], c[2], 40] },
+          stroked: false,
+          filled: true,
+          pickable: false,
+        }),
         new ScatterplotLayer<OohMapPoint>({
           id: 'ooh-inventory-dots',
           data: oohPoints,
           getPosition: (p) => [p.position.lng, p.position.lat, 0],
-          getRadius: 3,
-          radiusMinPixels: 2,
-          radiusMaxPixels: 7,
+          getRadius: 4,
+          radiusMinPixels: 5,
+          radiusMaxPixels: 14,
           radiusUnits: 'meters',
-          getFillColor: (p) => { const c = OOH_DOT_COLOR[p.mediaTypeCode] ?? [200, 210, 220]; return [c[0], c[1], c[2], 90] },
-          getLineColor: (p) => { const c = OOH_DOT_COLOR[p.mediaTypeCode] ?? [200, 210, 220]; return [c[0], c[1], c[2], 200] },
+          getFillColor: (p) => { const c = OOH_DOT_COLOR[p.mediaTypeCode] ?? [200, 210, 220]; return [c[0], c[1], c[2], 210] },
+          getLineColor: () => [20, 20, 30, 230],
           stroked: true,
           filled: true,
-          getLineWidth: 1,
+          getLineWidth: 1.5,
           lineWidthUnits: 'pixels',
-          pickable: false,
+          pickable: true,
         }),
       ]
 
@@ -529,16 +679,19 @@ export default function MapCanvas({ focusArea, countryIso }: { focusArea?: { lat
       return [...withMask, ring]
     },
     [
+      agentVersion,
       animationTime,
       billboards,
       buildings,
       countryIso,
+      cursorBillboard,
       focusArea,
       oohPoints,
       pendingArea,
       selectedArea,
       selectedBillboardId,
       selectedOohPointId,
+      showTrafficLines,
       sightingNotifications,
       streetFixtures,
       trafficPhaseTime,
@@ -596,7 +749,7 @@ export default function MapCanvas({ focusArea, countryIso }: { focusArea?: { lat
         for (const [key, lastSeen] of Object.entries(sightingCooldownRef.current)) {
           if (now - lastSeen < SIGHTING_COOLDOWN_MS) activeCooldowns.add(key)
         }
-        const newSightings = detectBillboardSightings(agentsRef.current, billboardsRef.current, activeCooldowns)
+        const newSightings = detectBillboardSightings(agentsRef.current, billboardsRef.current, oohPointsRef.current, activeCooldowns)
         if (newSightings.length > 0) {
           for (const s of newSightings) {
             sightingCooldownRef.current[`${s.agentId}:${s.billboardId}`] = now
@@ -618,18 +771,6 @@ export default function MapCanvas({ focusArea, countryIso }: { focusArea?: { lat
             }),
           ])
 
-          setAgentCaptures(prev => [
-            ...prev,
-            ...newSightings.map(s => ({
-              id: `${s.agentId}-${s.billboardId}-${now}`,
-              agentName: s.agentName,
-              billboardName: s.billboardName,
-              imageUrl: '',
-              thought: null,
-              timestamp: now,
-            })),
-          ])
-
           // Queue managed-agent interviews for each new sighting
           for (const s of newSightings) {
             pendingInterviewsRef.current.push({
@@ -644,12 +785,14 @@ export default function MapCanvas({ focusArea, countryIso }: { focusArea?: { lat
           for (const s of newSightings) {
             const agent = agentsRef.current.find(a => a.id === s.agentId)
             const billboard = billboardsRef.current.find(b => b.id === s.billboardId)
-            if (!agent || !billboard || !MAPBOX_TOKEN) continue
+            const oohPt = oohPointsRef.current.find(p => p.id === s.billboardId)
+            if (!agent || (!billboard && !oohPt) || !MAPBOX_TOKEN) continue
 
             const captureId = `${s.agentId}-${s.billboardId}-${Math.floor(now)}`
             const { lat, lng } = agent.position
-            const bearing = Math.round(agent.heading)
-            const imageUrl = `https://api.mapbox.com/styles/v1/mapbox/streets-v12/static/${lng.toFixed(6)},${lat.toFixed(6)},18,${bearing},60/400x312@2x?access_token=${MAPBOX_TOKEN}`
+            const bbPos = billboard?.position ?? oohPt?.position
+            const bearing = bbPos ? Math.round(bearingBetween(agent.position, bbPos)) : Math.round(agent.heading)
+            const imageUrl = `https://api.mapbox.com/styles/v1/mapbox/streets-v12/static/${lng.toFixed(6)},${lat.toFixed(6)},18,${bearing},80/400x312@2x?access_token=${MAPBOX_TOKEN}`
 
             // Add capture immediately so the photo appears right away
             setAgentCaptures(prev => [
@@ -658,8 +801,8 @@ export default function MapCanvas({ focusArea, countryIso }: { focusArea?: { lat
             ])
 
             // Fetch AI thought and patch it in when ready
-            const billboardCreativeText = billboard.creativeText
-            const billboardFormat = billboard.format
+            const billboardCreativeText = billboard?.creativeText ?? null
+            const billboardFormat = billboard?.format ?? null
             fetch('/api/agent-reaction', {
               method: 'POST',
               headers: { 'content-type': 'application/json' },
@@ -695,12 +838,14 @@ export default function MapCanvas({ focusArea, countryIso }: { focusArea?: { lat
   }, [])
 
   useEffect(() => { billboardsRef.current = billboards }, [billboards])
+  useEffect(() => { oohPointsRef.current = oohPoints }, [oohPoints])
 
-  // Apply any creative generated on the company-fetch page to all billboards
+  // Apply any creative generated on the company-fetch page to existing + future billboards
   useEffect(() => {
     try {
       const pending = localStorage.getItem('sightline:pending-creative')
       if (pending) {
+        setAppliedCreative(pending)
         setBillboards(current => current.map(b => ({ ...b, mediaUrl: pending })))
         localStorage.removeItem('sightline:pending-creative')
       }
@@ -861,30 +1006,25 @@ export default function MapCanvas({ focusArea, countryIso }: { focusArea?: { lat
   useEffect(() => {
     const area = selectedArea ?? pendingArea ?? (mapStyleReady ? FALLBACK_AREA : null)
     if (!area || !mapStyleReady) return
-    let cancelled = false
 
-    setRoads(generateSyntheticRoads(area, 1.0))
-    setTrafficPoints(generateSyntheticTraffic(area, 1.0))
-    setTrafficStatus('Fetching OSM road network...')
+    const mapboxMap = configuredMapRef.current
+    const tileRoads = mapboxMap ? roadsFromMapboxTiles(mapboxMap) : []
+    const tilePois  = mapboxMap ? trafficFromMapboxTiles(mapboxMap) : []
 
-    // Fetch actual curved road geometries from OSM
-    fetchRoads(area, 1.0)
-      .then(osmRoads => {
-        if (cancelled) return
-        setRoads(osmRoads.length > 0 ? osmRoads : generateSyntheticRoads(area, 1.0))
-        setTrafficStatus(osmRoads.length > 0 ? `${osmRoads.length} OSM road segments` : 'Synthetic grid (OSM unavailable)')
-      })
-      .catch(() => { /* keep synthetic roads */ })
+    const finalRoads = tileRoads.length > 0 ? tileRoads : generateSyntheticRoads(area, 1.0)
+    const finalPois  = tilePois.length  > 0 ? tilePois  : generateSyntheticTraffic(area, 1.0)
 
-    // Fetch real activity nodes in parallel
-    fetchTrafficDensity(area, 1.0)
-      .then(points => {
-        if (cancelled) return
-        if (points.length > 0) setTrafficPoints(points)
-      })
-      .catch(() => { /* keep synthetic points */ })
+    setRoads(finalRoads)
+    setTrafficPoints(finalPois)
+    setTrafficStatus(tileRoads.length > 0 ? `${tileRoads.length} roads from map` : 'Synthetic grid')
 
-    return () => { cancelled = true }
+    if (pendingAgentSpawnRef.current) {
+      pendingAgentSpawnRef.current = false
+      const { agents, behaviors } = spawnAgentsOnRoads(finalRoads, finalPois, 200, [])
+      agentsRef.current = agents
+      behaviorsRef.current = behaviors
+      setAgentVersion(v => v + 1)
+    }
   }, [selectedArea?.lat, selectedArea?.lng, pendingArea?.lat, pendingArea?.lng, mapStyleReady])
 
   useEffect(() => {
@@ -967,9 +1107,10 @@ export default function MapCanvas({ focusArea, countryIso }: { focusArea?: { lat
   }, [mapInstance, useCustomBuildings])
 
 
-  const addBillboardAt = useCallback((position: LatLng, heading?: number) => {
+  const addBillboardAt = useCallback((position: LatLng, heading?: number, id?: string) => {
+    const nextId = id ?? `bb-${Date.now()}`
     const nextBillboard: BillboardPlacement = {
-      id: `bb-${Date.now()}`,
+      id: nextId,
       name: `Billboard ${billboards.length + 1}`,
       position,
       widthM: 12,
@@ -983,11 +1124,12 @@ export default function MapCanvas({ focusArea, countryIso }: { focusArea?: { lat
       secondaryColor: '#111318',
       brightness: 75,
       weeklyReach: 64000,
+      mediaUrl: appliedCreative,
     }
 
     setBillboards(current => [...current, nextBillboard])
-    setSelectedBillboardId(nextBillboard.id)
-  }, [billboards.length])
+    setSelectedBillboardId(nextId)
+  }, [billboards.length, appliedCreative])
 
   const updateBillboard = useCallback((id: string, patch: Partial<BillboardPlacement>) => {
     setBillboards(current => current.map(billboard =>
@@ -1033,90 +1175,161 @@ export default function MapCanvas({ focusArea, countryIso }: { focusArea?: { lat
       }
       return
     }
-
-    if (pendingArea || selectedArea) return
-
-    const pickedBillboardId = (info.object as { placement?: BillboardPlacement } | null)?.placement?.id
-    if (pickedBillboardId) {
-      setSelectedBillboardId(pickedBillboardId)
-      setActiveBillboardTool('select')
-      return
-    }
-
-    if (!info.coordinate) return
-
-    const [lng, lat] = info.coordinate
-    if (typeof lng !== 'number' || typeof lat !== 'number') return
-
-    if (isOohMapPoint(info.object)) {
-      setSelectedOohPointId(info.object.id)
-      if (activeBillboardTool === 'select' && !isSelectionLocked) {
-        setPendingArea({ lat: info.object.position.lat, lng: info.object.position.lng })
+    if (activeTool === 'spawn-pedestrian') {
+      if (!info.coordinate) return
+      const [spLng, spLat] = info.coordinate
+      if (typeof spLng !== 'number' || typeof spLat !== 'number') return
+      if (spawnRotateRef.current === null) {
+        // Phase 1: place preview agent, enter rotate mode
+        const preview: PedestrianAgent = {
+          id: 'preview-pedestrian',
+          name: 'Pedestrian Preview',
+          position: { lat: spLat, lng: spLng },
+          heading: 0,
+          speedMps: 1.4,
+          phaseOffsetM: 0,
+          visual: 'walker',
+        }
+        const previewBehavior = createBehavior('preview-pedestrian')
+        previewBehavior.state = 'idle'
+        previewBehavior.stateTimer = 999999
+        agentsRef.current = [...agentsRef.current.filter(a => a.id !== 'preview-pedestrian'), preview]
+        behaviorsRef.current = [...behaviorsRef.current.filter(b => b.agentId !== 'preview-pedestrian'), previewBehavior]
+        spawnRotateRef.current = { lat: spLat, lng: spLng, startX: info.x ?? 0, heading: 0 }
+        setIsSpawnRotating(true)
+        setHasCrowd(true)
+        setAgentVersion(v => v + 1)
+      } else {
+        // Phase 2: finalize with current heading
+        const { lat: spawnLat, lng: spawnLng, heading: spawnHeading } = spawnRotateRef.current
+        const ts = Date.now()
+        const idx = agentsRef.current.filter(a => a.id !== 'preview-pedestrian').length
+        const newAgent: PedestrianAgent = {
+          id: `pedestrian-${ts}-${idx}`,
+          name: `Pedestrian ${String(idx + 1).padStart(3, '0')}`,
+          position: { lat: spawnLat, lng: spawnLng },
+          heading: spawnHeading,
+          speedMps: 1.0 + Math.random() * 0.8,
+          phaseOffsetM: Math.random() * 14,
+          visual: 'walker',
+        }
+        agentsRef.current = [...agentsRef.current.filter(a => a.id !== 'preview-pedestrian'), newAgent]
+        behaviorsRef.current = [...behaviorsRef.current.filter(b => b.agentId !== 'preview-pedestrian'), createBehavior(newAgent.id)]
+        spawnRotateRef.current = null
+        setIsSpawnRotating(false)
+        setAgentVersion(v => v + 1)
       }
       return
     }
 
-    if (activeBillboardTool === 'place') {
-      addBillboardAt({ lat, lng })
+    if (!info.coordinate) return
+    const [lng, lat] = info.coordinate
+    if (typeof lng !== 'number' || typeof lat !== 'number') return
+
+
+    // Clicking an existing billboard always selects it
+    const pickedBillboardId = (info.object as { placement?: BillboardPlacement } | null)?.placement?.id
+    if (pickedBillboardId) {
+      setSelectedBillboardId(pickedBillboardId)
+      return
+    }
+
+    // Builder tool: two-phase place + rotate, works even when area is selected
+    if (activeTool === 'builder') {
+      if (billboardRotateRef.current === null) {
+        const newId = `bb-${Date.now()}`
+        addBillboardAt({ lat, lng }, 0, newId)
+        billboardRotateRef.current = { id: newId, startX: info.x ?? 0 }
+        setIsBillboardRotating(true)
+      } else {
+        billboardRotateRef.current = null
+        setIsBillboardRotating(false)
+      }
+      return
+    }
+
+    if (pendingArea || selectedArea) return
+
+    if (isOohMapPoint(info.object)) {
+      setSelectedOohPointId(info.object.id)
+      setOohClickPos({ x: info.x ?? 0, y: info.y ?? 0 })
+      if (!isSelectionLocked) {
+        setPendingArea({ lat: info.object.position.lat, lng: info.object.position.lng })
+      }
       return
     }
 
     if (isSelectionLocked) return
 
     setPendingArea({ lat, lng })
-  }, [activeBillboardTool, activeTool, addBillboardAt, isSelectionLocked, pendingArea, selectedArea])
+  }, [activeTool, addBillboardAt, isSelectionLocked, pendingArea, selectedArea])
 
   const handleMapHover = useCallback((info: PickingInfo) => {
-    if (activeTool !== 'streetview') {
-      setStreetViewHover(null)
-      return
+    // Heading rotate for billboard placement
+    if (billboardRotateRef.current !== null && info.x !== undefined) {
+      const deltaX = info.x - billboardRotateRef.current.startX
+      const heading = ((deltaX % 360) + 360) % 360
+      updateBillboard(billboardRotateRef.current.id, { heading })
     }
 
-    if (info.x === undefined || info.y === undefined || !info.coordinate) {
-      setStreetViewHover(null)
-      return
+    // Heading rotate for spawn-pedestrian tool
+    if (activeTool === 'spawn-pedestrian' && spawnRotateRef.current !== null && info.x !== undefined) {
+      const deltaX = info.x - spawnRotateRef.current.startX
+      const heading = ((deltaX % 360) + 360) % 360
+      spawnRotateRef.current.heading = heading
+      const previewIdx = agentsRef.current.findIndex(a => a.id === 'preview-pedestrian')
+      if (previewIdx >= 0) agentsRef.current[previewIdx].heading = heading
     }
 
-    // If a focus circle is active, hide pin outside its 2 km radius
-    if (focusArea && !countryIso) {
-      const [lng, lat] = info.coordinate as [number, number]
-      if (haversineKm({ lat, lng }, focusArea) > 2) {
+    // Street view cursor pin
+    if (activeTool === 'streetview') {
+      if (info.x === undefined || info.y === undefined || !info.coordinate) {
         setStreetViewHover(null)
-        return
+      } else if (focusArea && !countryIso) {
+        const [lng, lat] = info.coordinate as [number, number]
+        setStreetViewHover(haversineKm({ lat, lng }, focusArea) > 2 ? null : { x: info.x, y: info.y })
+      } else {
+        setStreetViewHover({ x: info.x, y: info.y })
       }
+    } else {
+      setStreetViewHover(null)
     }
 
-    setStreetViewHover({ x: info.x, y: info.y })
-  }, [activeTool, countryIso, focusArea])
+    // Billboard cursor preview
+    if (activeTool === 'builder' && info.coordinate) {
+      const [lng, lat] = info.coordinate as [number, number]
+      setCursorCoord({ lat, lng })
+    } else {
+      setCursorCoord(null)
+    }
+  }, [activeTool, countryIso, focusArea, updateBillboard])
 
   const handleConfirmArea = useCallback(() => {
     if (!pendingArea) return
     setSelectedArea(pendingArea)
     setPendingArea(null)
 
-    let spawned, spawnedBehaviors
-    if (roads.length > 0) {
-      ({ agents: spawned, behaviors: spawnedBehaviors } = spawnAgentsOnRoads(roads, trafficPoints, 200, buildings))
+    if (roadsRef.current.length > 0) {
+      // Roads already loaded — spawn immediately and skip the deferred OSM re-spawn.
+      pendingAgentSpawnRef.current = false
+      const { agents: spawned, behaviors } = spawnAgentsOnRoads(roadsRef.current, trafficPointsRef.current, 200, [])
+      agentsRef.current = spawned
+      behaviorsRef.current = behaviors
+      setAgentVersion(v => v + 1)
     } else {
-      spawned = trafficPoints.length > 0
-        ? spawnAgentsFromTraffic(trafficPoints, 200, buildings)
-        : spawnAgentsInRadius(pendingArea, 800, 200, buildings)
-      spawnedBehaviors = createBehaviors(spawned)
+      // No roads yet — set the flag so the useEffect spawns once OSM data arrives.
+      pendingAgentSpawnRef.current = true
     }
-    agentsRef.current = spawned
-    behaviorsRef.current = spawnedBehaviors
-    setFocusedAgentIdx(0)
     setHasCrowd(true)
 
-    // Fly to street level so the 3D crowd figures are visible (they're ~3px at city zoom)
     mapInstance?.flyTo({
       center: [pendingArea.lng, pendingArea.lat],
-      zoom: 18,
+      zoom: 17,
       pitch: INITIAL_VIEW_STATE.pitch,
       bearing: INITIAL_VIEW_STATE.bearing,
       duration: 1500,
     })
-  }, [buildings, mapInstance, pendingArea, trafficPoints])
+  }, [mapInstance, pendingArea])
 
   const handleCancelArea = useCallback(() => {
     setPendingArea(null)
@@ -1128,6 +1341,8 @@ export default function MapCanvas({ focusArea, countryIso }: { focusArea?: { lat
   }, [selectedArea])
 
   const [hasCrowd, setHasCrowd] = useState(false)
+  const [isSpawnRotating, setIsSpawnRotating] = useState(false)
+  const [isBillboardRotating, setIsBillboardRotating] = useState(false)
   const [focusedAgentIdx, setFocusedAgentIdx] = useState(0)
 
   const handleAgentCycle = useCallback(() => {
@@ -1144,21 +1359,31 @@ export default function MapCanvas({ focusArea, countryIso }: { focusArea?: { lat
       behaviorsRef.current = []
       setHasCrowd(false)
     } else {
-      let spawned, spawnedBehaviors
-      if (roadsRef.current.length > 0) {
-        ({ agents: spawned, behaviors: spawnedBehaviors } = spawnAgentsOnRoads(roadsRef.current, trafficPoints, 200, buildings))
-      } else {
-        spawned = trafficPoints.length > 0
-          ? spawnAgentsFromTraffic(trafficPoints, 200, buildings)
-          : spawnAgentsInRadius(contextArea, 800, 200, buildings)
-        spawnedBehaviors = createBehaviors(spawned)
-      }
-      agentsRef.current = spawned
-      behaviorsRef.current = spawnedBehaviors
-      setFocusedAgentIdx(0)
+      if (roadsRef.current.length === 0) return
+      const { agents, behaviors } = spawnAgentsOnRoads(roadsRef.current, trafficPointsRef.current, 200, [])
+      agentsRef.current = agents
+      behaviorsRef.current = behaviors
       setHasCrowd(true)
     }
-  }, [buildings, contextArea, hasCrowd, trafficPoints])
+  }, [hasCrowd])
+
+  // Clean up preview agent when spawn tool is deactivated
+  useEffect(() => {
+    if (activeTool !== 'spawn-pedestrian' && spawnRotateRef.current !== null) {
+      agentsRef.current = agentsRef.current.filter(a => a.id !== 'preview-pedestrian')
+      behaviorsRef.current = behaviorsRef.current.filter(b => b.agentId !== 'preview-pedestrian')
+      spawnRotateRef.current = null
+      setIsSpawnRotating(false)
+      setAgentVersion(v => v + 1)
+    }
+  }, [activeTool])
+
+  useEffect(() => {
+    if (activeTool !== 'builder' && billboardRotateRef.current !== null) {
+      billboardRotateRef.current = null
+      setIsBillboardRotating(false)
+    }
+  }, [activeTool])
 
   const spawnBaseWalker = handleCrowdToggle
 
@@ -1279,7 +1504,15 @@ export default function MapCanvas({ focusArea, countryIso }: { focusArea?: { lat
           layers={layers}
           onClick={handleMapClick}
           onHover={handleMapHover}
-          style={{ position: 'absolute', inset: '0', cursor: activeTool === 'streetview' ? 'none' : undefined }}
+          getTooltip={({ layer, object }) => {
+            if (layer?.id !== 'ooh-inventory-dots' || !object) return null
+            const p = object as OohMapPoint
+            return {
+              html: `<div style="font:12px/1.5 sans-serif;padding:6px 8px"><b>${p.mediaTypeLabel}</b><br/>👁 ${(p.weeklyImpressions / 1000).toFixed(0)}k impressions/wk<br/>Visibility: ${p.visibilityScore}/100</div>`,
+              style: { background: '#1a1a2e', color: '#f0f0f0', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.12)' },
+            }
+          }}
+          style={{ position: 'absolute', inset: '0', cursor: activeTool === 'streetview' ? 'none' : isBillboardRotating || (activeTool === 'spawn-pedestrian' && isSpawnRotating) ? 'ew-resize' : activeTool === 'builder' || activeTool === 'spawn-pedestrian' ? 'crosshair' : undefined }}
         >
           <MapboxMap
             ref={mapRef}
@@ -1292,27 +1525,19 @@ export default function MapCanvas({ focusArea, countryIso }: { focusArea?: { lat
             minZoom={countryIso ? 3 : 11}
           />
         </DeckGL>
-        {walkClip && (
-          <CrowdLayer
-            agents={agentsRef.current}
-            walkClip={walkClip}
-            deckRef={deckRef}
-            elapsedSeconds={animationTime}
-            focusedAgentIdx={hasCrowd ? focusedAgentIdx : undefined}
-            onAgentCycle={hasCrowd ? handleAgentCycle : undefined}
-          />
-        )}
-        <BillboardMeshLayer billboards={billboards} deckRef={deckRef} />
+        <CrowdLayer
+          agents={agentsRef.current}
+          agentSourceRef={agentsRef}
+          deckRef={deckRef}
+          elapsedSeconds={animationTime}
+          agentVersion={agentVersion}
+        />
       </div>
 
       {activeTool === 'builder' && (
         <BillboardStudioPanel
           billboards={billboards}
           selectedBillboard={selectedBillboard}
-          selectedArea={selectedArea}
-          activeTool={activeBillboardTool}
-          onToolChange={setActiveBillboardTool}
-          onAddBillboard={addBillboardAt}
           onSelectBillboard={setSelectedBillboardId}
           onUpdateBillboard={updateBillboard}
           onDuplicateBillboard={duplicateBillboard}
@@ -1332,7 +1557,7 @@ export default function MapCanvas({ focusArea, countryIso }: { focusArea?: { lat
       )}
 
       {activeTool === 'dashboard' && (
-        <DashboardOverlay onClose={() => setActiveTool(null)} captures={agentCaptures} billboards={billboards} oohPoints={oohPoints} mapboxToken={MAPBOX_TOKEN ?? ''} />
+        <DashboardOverlay onClose={() => setActiveTool(null)} captures={agentCaptures} billboards={billboards} oohPoints={oohPoints} mapboxToken={MAPBOX_TOKEN ?? ''} agentsRef={agentsRef} />
       )}
 
       {pendingArea && (
@@ -1362,91 +1587,23 @@ export default function MapCanvas({ focusArea, countryIso }: { focusArea?: { lat
         />
       )}
 
-      {selectedOohPoint && (
-        <div style={{
-          position: 'absolute',
-          bottom: 24,
-          left: 24,
-          zIndex: 30,
-          width: 288,
-          background: 'rgba(10,13,20,0.88)',
-          backdropFilter: 'blur(14px)',
-          border: '1px solid rgba(255,255,255,0.13)',
-          borderRadius: 14,
-          fontFamily: 'system-ui, sans-serif',
-          overflow: 'hidden',
-        }}>
-          <div style={{ padding: '12px 14px 10px', borderBottom: '1px solid rgba(255,255,255,0.08)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.08em', color: 'rgba(180,200,255,0.65)', textTransform: 'uppercase' }}>
-              OOH Listing
-            </span>
-            <button
-              onClick={() => setSelectedOohPointId(null)}
-              style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'rgba(255,255,255,0.45)', fontSize: 16, lineHeight: 1, padding: '0 2px' }}
-            >
-              ×
-            </button>
-          </div>
-          <div style={{ padding: '12px 14px' }}>
-            <div style={{ fontSize: 15, fontWeight: 700, color: '#e8eeff', marginBottom: 10 }}>
-              {selectedOohPoint.mediaTypeLabel}
-            </div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px 12px', marginBottom: 12 }}>
-              <div>
-                <div style={{ fontSize: 10, fontWeight: 600, color: 'rgba(180,200,255,0.5)', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 2 }}>Monthly Rate</div>
-                <div style={{ fontSize: 14, fontWeight: 700, color: selectedOohPoint.priceAmount > 0 ? '#ffcf5c' : 'rgba(255,255,255,0.35)' }}>
-                  {selectedOohPoint.priceAmount > 0 ? `$${selectedOohPoint.priceAmount.toLocaleString()}` : 'Call for price'}
-                </div>
-              </div>
-              <div>
-                <div style={{ fontSize: 10, fontWeight: 600, color: 'rgba(180,200,255,0.5)', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 2 }}>Visibility</div>
-                <div style={{ fontSize: 14, fontWeight: 700, color: selectedOohPoint.visibilityScore >= 80 ? '#55ff88' : selectedOohPoint.visibilityScore >= 60 ? '#ffcf5c' : '#ff8855' }}>
-                  {selectedOohPoint.visibilityScore}<span style={{ fontSize: 11, fontWeight: 400, color: 'rgba(255,255,255,0.4)' }}>/100</span>
-                </div>
-              </div>
-              <div>
-                <div style={{ fontSize: 10, fontWeight: 600, color: 'rgba(180,200,255,0.5)', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 2 }}>Weekly Impressions</div>
-                <div style={{ fontSize: 13, fontWeight: 600, color: 'rgba(220,230,255,0.85)' }}>
-                  {selectedOohPoint.weeklyImpressions > 0 ? selectedOohPoint.weeklyImpressions.toLocaleString() : '—'}
-                </div>
-              </div>
-              <div>
-                <div style={{ fontSize: 10, fontWeight: 600, color: 'rgba(180,200,255,0.5)', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 2 }}>Est. CPM</div>
-                <div style={{ fontSize: 13, fontWeight: 600, color: 'rgba(220,230,255,0.85)' }}>
-                  {selectedOohPoint.priceAmount > 0 && selectedOohPoint.weeklyImpressions > 0
-                    ? `$${((selectedOohPoint.priceAmount / (selectedOohPoint.weeklyImpressions * 4)) * 1000).toFixed(2)}`
-                    : '—'}
-                </div>
-              </div>
-            </div>
-            {oohSourceUrls[selectedOohPoint.sourceUrlIndex] && (
-              <a
-                href={oohSourceUrls[selectedOohPoint.sourceUrlIndex]}
-                target="_blank"
-                rel="noopener noreferrer"
-                style={{
-                  display: 'block',
-                  padding: '7px 10px',
-                  background: 'rgba(73,145,255,0.14)',
-                  border: '1px solid rgba(73,145,255,0.3)',
-                  borderRadius: 8,
-                  fontSize: 12,
-                  fontWeight: 600,
-                  color: '#91c8ff',
-                  textDecoration: 'none',
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis',
-                  whiteSpace: 'nowrap',
-                }}
-              >
-                View original listing ↗
-              </a>
-            )}
-          </div>
-        </div>
+      {selectedOohPoint && activeTool !== 'builder' && (
+        <BillboardListingPanel
+          point={selectedOohPoint}
+          mapboxToken={MAPBOX_TOKEN}
+          cursorX={oohClickPos?.x}
+          cursorY={oohClickPos?.y}
+          onClose={() => { setSelectedOohPointId(null); setOohClickPos(null) }}
+          onPlaceBillboard={() => {
+            addBillboardAt(selectedOohPoint.position)
+            setSelectedOohPointId(null)
+            setOohClickPos(null)
+            setActiveTool('builder')
+          }}
+        />
       )}
 
-      <MapToolbar activeTool={activeTool} onToolChange={setActiveTool} onSpawnCrowd={handleCrowdToggle} hasCrowd={hasCrowd} dashboardEnabled={true} />
+      <MapToolbar activeTool={activeTool} onToolChange={setActiveTool} onSpawnCrowd={handleCrowdToggle} hasCrowd={hasCrowd} dashboardEnabled={true} showTrafficLines={showTrafficLines} onTrafficLinesToggle={() => setShowTrafficLines(v => !v)} />
 
       {sightingNotifications.length > 0 && (
         <div style={{
