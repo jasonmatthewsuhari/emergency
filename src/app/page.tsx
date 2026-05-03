@@ -20,6 +20,7 @@ const COUNTRY_INFO: Record<string, { name: string; lat: number; lng: number }> =
   MX: { name: 'Mexico',                 lat:  23.63, lng: -102.55 },
   NL: { name: 'Netherlands',            lat:  52.13, lng:    5.29 },
   PL: { name: 'Poland',                 lat:  51.92, lng:   19.15 },
+  SG: { name: 'Singapore',             lat:   1.35, lng:  103.82 },
   US: { name: 'United States',            lat: 37.09, lng: -95.71 },
 }
 
@@ -369,6 +370,46 @@ function SiteScanPreview({ url, progress, status }: { url: string; progress: num
           </div>
         ))}
       </div>
+      <div className="pow-badge-wrap">
+        <div className="pow-badge">
+          <svg
+            className="pow-badge__svg"
+            viewBox="0 0 400 122"
+            xmlns="http://www.w3.org/2000/svg"
+            aria-hidden="true"
+          >
+            <defs>
+              <radialGradient id="pow-grad" cx="50%" cy="50%" r="52%">
+                <stop offset="0%" stopColor="#FFFDE7" />
+                <stop offset="60%" stopColor="#FFE01B" />
+                <stop offset="100%" stopColor="#FFC107" />
+              </radialGradient>
+            </defs>
+            <polygon
+              points="12,8 68,44 105,2 155,46 185,6 200,44 215,6 245,46 295,2 332,44 388,8 400,44 390,68 400,88 382,95 368,120 308,90 290,120 248,86 230,120 200,88 170,120 152,86 110,120 92,90 32,120 18,95 0,88 10,68 0,44 12,35"
+              fill="rgba(0,0,0,0.22)"
+              transform="translate(3,4)"
+            />
+            {([[12,8],[105,2],[185,6],[215,6],[295,2],[388,8],
+               [400,44],[400,88],[368,120],[290,120],[230,120],
+               [170,120],[110,120],[32,120],[0,88],[0,44]] as [number,number][]).map(([x,y], i) => (
+              <line key={i} x1="200" y1="62" x2={x} y2={y}
+                stroke="#000" strokeWidth="1" opacity="0.07" />
+            ))}
+            <polygon
+              points="12,8 68,44 105,2 155,46 185,6 200,44 215,6 245,46 295,2 332,44 388,8 400,44 390,68 400,88 382,95 368,120 308,90 290,120 248,86 230,120 200,88 170,120 152,86 110,120 92,90 32,120 18,95 0,88 10,68 0,44 12,35"
+              fill="url(#pow-grad)"
+              stroke="#0d0d0d"
+              strokeWidth="5"
+              strokeLinejoin="bevel"
+            />
+          </svg>
+          <div className="pow-badge__text">
+            <span className="pow-badge__top">powered by</span>
+            <span className="pow-badge__name">GPT Image 2</span>
+          </div>
+        </div>
+      </div>
     </div>
   )
 }
@@ -549,7 +590,8 @@ export default function LandingPage() {
     lat: number, lng: number,
     name: string | null, iso: string | null, count: number | null,
   ) => {
-    setFocusPoint({ lat, lng })
+    const info = iso ? COUNTRY_INFO[iso] : null
+    setFocusPoint(info ? { lat: info.lat, lng: info.lng } : { lat, lng })
     setFocusCountry(name && iso ? { name, iso, count } : null)
   }, [])
 
@@ -911,7 +953,7 @@ export default function LandingPage() {
   const briefHeadline = obMode === 'url' ? ['YOUR', 'SITE']
     : obMode === 'review' ? ['REVIEW', 'BRIEF']
     : obMode === 'preview' ? ['YOUR', 'AD']
-    : obMode === 'generating' ? ['ONE', 'SEC']
+    : obMode === 'generating' ? ['ONE SEC', '']
     : ['THE', 'BRIEF']
   const briefSub = obMode === 'url'
     ? "We'll scan it and pull your brand identity automatically."
@@ -976,8 +1018,8 @@ export default function LandingPage() {
         {leftView === 'hero' && (
           <div className="lp-hero">
             <h1 className="headline">
-              <span className="headline-line" style={{ animationDelay: '0.2s' }}>SIGHT</span>
-              <span className="headline-line accent-stroke" style={{ animationDelay: '0.38s' }}>LINE</span>
+              <span className="headline-line" data-text="SIGHT" style={{ animationDelay: '0.2s' }}>SIGHT</span>
+              <span className="headline-line accent-stroke" data-text="LINE" style={{ animationDelay: '0.38s' }}>LINE</span>
             </h1>
 
             <p className="tagline" style={{ animationDelay: '0.55s' }}>
@@ -987,7 +1029,6 @@ export default function LandingPage() {
             <div className="color-bar" style={{ animationDelay: '0.7s' }}>
               <span className="bar-red" />
               <span className="bar-blue" />
-              <span className="bar-yellow" />
             </div>
 
             {focusCountry ? (
@@ -1039,14 +1080,13 @@ export default function LandingPage() {
               <button className="ob-panel-back" onClick={goBack}>← BACK</button>
 
               <h1 className="headline" style={{ marginTop: '1.25rem' }}>
-                <span className="headline-line">{briefHeadline[0]}</span>
-                <span className="headline-line accent-stroke">{briefHeadline[1]}</span>
+                <span className="headline-line" data-text={briefHeadline[0]}>{briefHeadline[0]}</span>
+                <span className="headline-line accent-stroke" data-text={briefHeadline[1]}>{briefHeadline[1]}</span>
               </h1>
 
               <div className="color-bar">
                 <span className="bar-red" />
                 <span className="bar-blue" />
-                <span className="bar-yellow" />
               </div>
 
               <p className="ob-panel-sub">{briefSub}</p>
@@ -1615,9 +1655,6 @@ export default function LandingPage() {
                             hideControls
                             billboardOnly
                           />
-                          <div className="ob-3d-preview-chrome" aria-hidden="true">
-                            <span className="ob-3d-preview-expand">EXPAND</span>
-                          </div>
                         </div>
                       </div>
 
