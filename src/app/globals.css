@@ -3687,6 +3687,7 @@ textarea {
 }
 
 .bh-overlay-dialog {
+  position: relative;
   width: 90vw;
   height: 90vh;
   display: flex;

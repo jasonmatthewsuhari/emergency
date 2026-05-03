@@ -232,7 +232,7 @@ export function toDisplayEvents(events: AnthropicEvent[]): ManagedAgentDisplayEv
         return {
           id,
           type,
-          actor: 'Claude Managed Agent',
+          actor: 'AI Agent',
           title: 'Agent response',
           detail: textFromContent(event.content) || 'Claude returned a message.',
           status: 'complete',

@@ -854,14 +854,9 @@ export default function LandingPage() {
   }
 
   async function generateCreative(brief: CompanyBrief, mode: 'image' = 'image') {
-    const res = await fetch('/api/generate-creative', {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ brief, widthM: DEFAULT_WIDTH_M, heightM: DEFAULT_HEIGHT_M, mode, logoBase64: logoPreview ?? undefined }),
-    })
-    const json = await res.json() as { url?: string; prompt?: string; overlay?: CreativeOverlay; error?: string }
-    if (!res.ok || json.error) throw new Error(json.error ?? `HTTP ${res.status}`)
-    return { url: json.url!, prompt: json.prompt!, overlay: json.overlay!, mode }
+    // MOCK: skip real generation, wait 10s, return mock.png
+    await new Promise(resolve => window.setTimeout(resolve, 20000))
+    return { url: '/mock.png', prompt: 'mock creative', overlay: null as unknown as CreativeOverlay, mode }
   }
 
   const handleSubmitUrl = async (e: React.FormEvent) => {
