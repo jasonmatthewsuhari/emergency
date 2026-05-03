@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import DeckGL from '@deck.gl/react'
 import type { DeckGLRef } from '@deck.gl/react'
 import type { PickingInfo } from '@deck.gl/core'
-import { PolygonLayer, PathLayer, ScatterplotLayer } from '@deck.gl/layers'
+import { PathLayer, ScatterplotLayer } from '@deck.gl/layers'
 import { Map as MapboxMap } from 'react-map-gl/mapbox'
 import type { MapRef } from 'react-map-gl/mapbox'
 import mapboxgl from 'mapbox-gl'
@@ -25,7 +25,7 @@ import CrowdLayer from '@/components/CrowdLayer'
 import BillboardMeshLayer from '@/components/BillboardMeshLayer'
 import { makeStreetFixtureLayers } from '@/layers/StreetFixtureLayer'
 import { makeTrafficFlowLayers } from '@/layers/TrafficFlowLayer'
-import { makeCircleCoords, makeInvertedMask, haversineKm } from '@/lib/geoUtils'
+import { makeCircleCoords, haversineKm } from '@/lib/geoUtils'
 import { fetchTrafficDensity, fetchRoads } from '@/lib/overpass'
 import { spawnAgentsInRadius, spawnAgentsFromTraffic } from '@/lib/spawnAgents'
 import { createBehaviors, tickAgents } from '@/lib/agentBehaviors'
@@ -67,38 +67,6 @@ const FALLBACK_AREA = {
 }
 
 const INITIAL_BILLBOARDS: BillboardPlacement[] = [
-  {
-    id: 'bb-premium-junction',
-    name: 'Premium Junction Face',
-    position: { lat: 34.05584, lng: -118.24525 },
-    widthM: 14,
-    heightM: 6,
-    clearanceM: 7,
-    heading: 126,
-    format: 'digital',
-    material: 'digital-night',
-    creativeText: 'RISE ABOVE',
-    primaryColor: '#2d7dff',
-    secondaryColor: '#ffffff',
-    brightness: 85,
-    weeklyReach: 142000,
-  },
-  {
-    id: 'bb-transit-shelter',
-    name: 'Transit Shelter Pair',
-    position: { lat: 34.05435, lng: -118.24265 },
-    widthM: 7,
-    heightM: 3.2,
-    clearanceM: 2.1,
-    heading: 35,
-    format: 'poster',
-    material: 'printed-vinyl',
-    creativeText: 'JOIN TODAY',
-    primaryColor: '#28b487',
-    secondaryColor: '#07100d',
-    brightness: 55,
-    weeklyReach: 97000,
-  },
 ]
 
 // --- Billboard sighting detection ---
@@ -232,7 +200,7 @@ const STANDARD_STYLE_CONFIG: Array<[string, unknown]> = [
   ['showPointOfInterestLabels', false],
   ['showPointOfInterestIcons', false],
   ['densityPointOfInterestLabels', 0],
-  ['lightPreset', 'dusk'],
+  ['lightPreset', 'day'],
   ['colorBuildings', '#d8d1c3'],
   ['colorLand', '#ece9df'],
   ['colorRoads', '#f8f4ea'],
@@ -516,14 +484,6 @@ export default function MapCanvas({ focusArea, countryIso }: { focusArea?: { lat
       if (!focusArea || countryIso) return base
 
       const center: [number, number] = [focusArea.lng, focusArea.lat]
-      const mask = new PolygonLayer({
-        id: 'focus-mask',
-        data: [{ polygon: makeInvertedMask(center, 2).geometry.coordinates }],
-        getPolygon: (d: { polygon: number[][][] }) => d.polygon,
-        getFillColor: [15, 17, 23, 235],
-        filled: true,
-        stroked: false,
-      })
       const ring = new PathLayer({
         id: 'focus-ring',
         data: [{ path: makeCircleCoords(center, 2) }],
@@ -533,7 +493,7 @@ export default function MapCanvas({ focusArea, countryIso }: { focusArea?: { lat
         widthUnits: 'pixels',
       })
 
-      return [...base, mask, ring]
+      return [...base, ring]
     },
     [
       animationTime,

@@ -60,7 +60,7 @@ export function makeInvertedMask(
     type: 'Feature',
     geometry: {
       type: 'Polygon',
-      coordinates: [WORLD_RING, makeCircleCoords(center, radiusKm)],
+      coordinates: [WORLD_RING, [...makeCircleCoords(center, radiusKm)].reverse()],
     },
     properties: {},
   }
