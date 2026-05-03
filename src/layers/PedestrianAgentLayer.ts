@@ -69,35 +69,35 @@ function buildAgentGeometry(agent: PedestrianAgent, frame: WalkFrame, elapsedSec
   const bodyLean = frame.bodyTilt * 0.24
   const headLean = frame.headTilt * 0.15
 
-  const pelvis = project(0, 0, 0.68)
-  const chest = project(0, bodyLean, 1.29)
-  const head = project(0, bodyLean + headLean, 1.61)
+  const pelvis = project(0, 0, 8.5)
+  const chest = project(0, bodyLean, 16.0)
+  const head = project(0, bodyLean + headLean, 20.0)
 
-  const leftShoulder = project(-0.27, bodyLean, 1.26)
-  const rightShoulder = project(0.27, bodyLean, 1.26)
-  const leftHand = project(-0.33, Math.sin(frame.leftArm) * 0.36, 0.74)
-  const rightHand = project(0.33, Math.sin(frame.rightArm) * 0.36, 0.74)
+  const leftShoulder = project(-3.4, bodyLean, 15.6)
+  const rightShoulder = project(3.4, bodyLean, 15.6)
+  const leftHand = project(-4.1, Math.sin(frame.leftArm) * 4.5, 9.2)
+  const rightHand = project(4.1, Math.sin(frame.rightArm) * 4.5, 9.2)
 
-  const leftHip = project(-0.15, 0, 0.68)
-  const rightHip = project(0.15, 0, 0.68)
-  const leftFoot = project(-0.17, Math.sin(frame.leftLeg) * 0.44, 0.04)
-  const rightFoot = project(0.17, Math.sin(frame.rightLeg) * 0.44, 0.04)
-  const ground = project(0, 0, 0.02)
-  const label = project(0, 0, 2.0)
+  const leftHip = project(-1.9, 0, 8.5)
+  const rightHip = project(1.9, 0, 8.5)
+  const leftFoot = project(-2.1, Math.sin(frame.leftLeg) * 5.5, 0.5)
+  const rightFoot = project(2.1, Math.sin(frame.rightLeg) * 5.5, 0.5)
+  const ground = project(0, 0, 0.25)
+  const label = project(0, 0, 25.0)
 
   const paths: AgentPath[] = [
-    { id: `${agent.id}-torso`, path: [pelvis, chest], color: SHIRT, width: 0.39 },
-    { id: `${agent.id}-left-arm`, path: [leftShoulder, leftHand], color: SHIRT, width: 0.13 },
-    { id: `${agent.id}-right-arm`, path: [rightShoulder, rightHand], color: SHIRT, width: 0.13 },
-    { id: `${agent.id}-left-leg`, path: [leftHip, leftFoot], color: PANTS, width: 0.15 },
-    { id: `${agent.id}-right-leg`, path: [rightHip, rightFoot], color: PANTS, width: 0.15 },
+    { id: `${agent.id}-torso`, path: [pelvis, chest], color: SHIRT, width: 4.8 },
+    { id: `${agent.id}-left-arm`, path: [leftShoulder, leftHand], color: SHIRT, width: 1.6 },
+    { id: `${agent.id}-right-arm`, path: [rightShoulder, rightHand], color: SHIRT, width: 1.6 },
+    { id: `${agent.id}-left-leg`, path: [leftHip, leftFoot], color: PANTS, width: 1.9 },
+    { id: `${agent.id}-right-leg`, path: [rightHip, rightFoot], color: PANTS, width: 1.9 },
   ]
 
   const points: AgentPoint[] = [
-    { id: `${agent.id}-shadow`, position: ground, color: SHADOW, radius: 0.54 },
-    { id: `${agent.id}-head`, position: head, color: SKIN, radius: 0.21 },
-    { id: `${agent.id}-left-foot`, position: leftFoot, color: PANTS, radius: 0.09 },
-    { id: `${agent.id}-right-foot`, position: rightFoot, color: PANTS, radius: 0.09 },
+    { id: `${agent.id}-shadow`, position: ground, color: SHADOW, radius: 8 },
+    { id: `${agent.id}-head`, position: head, color: SKIN, radius: 4 },
+    { id: `${agent.id}-left-foot`, position: leftFoot, color: PANTS, radius: 2 },
+    { id: `${agent.id}-right-foot`, position: rightFoot, color: PANTS, radius: 2 },
   ]
 
   const labels: AgentLabel[] = [{

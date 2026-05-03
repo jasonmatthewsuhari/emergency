@@ -35,16 +35,14 @@ function isInsideBuilding(pos: LatLng, buildings: Building[]): boolean {
 }
 
 function makeAgent(i: number, position: LatLng, ts: number): PedestrianAgent {
-  const visual = i > 0 && i % 16 === 0 ? 'car' : 'walker'
-
   return {
     id: `pedestrian-${ts}-${i}`,
-    name: visual === 'car' ? `Car ${String(i + 1).padStart(3, '0')}` : `Pedestrian ${String(i + 1).padStart(3, '0')}`,
+    name: `Pedestrian ${String(i + 1).padStart(3, '0')}`,
     position,
     heading: Math.random() * 360,
-    speedMps: visual === 'car' ? 1.45 + Math.random() * 0.7 : 1.0 + Math.random() * 0.8,
+    speedMps: 1.0 + Math.random() * 0.8,
     phaseOffsetM: Math.random() * LOOP_LENGTH_M,
-    visual,
+    visual: 'walker',
   }
 }
 
@@ -185,15 +183,14 @@ export function spawnAgentsOnRoads(
 
     if (isInsideBuilding(spawnPos, buildings)) continue
 
-    const visual = n > 0 && n % 16 === 0 ? 'car' : 'walker'
     const agent: PedestrianAgent = {
       id: `pedestrian-${ts}-${n}`,
-      name: visual === 'car' ? `Car ${String(n + 1).padStart(3, '0')}` : `Pedestrian ${String(n + 1).padStart(3, '0')}`,
+      name: `Pedestrian ${String(n + 1).padStart(3, '0')}`,
       position: { ...spawnPos },
       heading: 0,
-      speedMps: visual === 'car' ? 1.45 + Math.random() * 0.7 : 1.0 + Math.random() * 0.8,
+      speedMps: 1.0 + Math.random() * 0.8,
       phaseOffsetM: Math.random() * LOOP_LENGTH_M,
-      visual,
+      visual: 'walker',
     }
 
     const waypointDir: 1 | -1 = Math.random() < 0.5 ? 1 : -1
@@ -224,15 +221,14 @@ export function spawnAgentsOnRoads(
     const wpIdx = Math.floor(Math.random() * road.path.length)
     const pos = road.path[wpIdx]
     const n = agents.length
-    const visual = n > 0 && n % 16 === 0 ? 'car' : 'walker'
     const agent: PedestrianAgent = {
       id: `pedestrian-${ts}-fill-${n}`,
-      name: visual === 'car' ? `Car ${String(n + 1).padStart(3, '0')}` : `Pedestrian ${String(n + 1).padStart(3, '0')}`,
+      name: `Pedestrian ${String(n + 1).padStart(3, '0')}`,
       position: { ...pos },
       heading: Math.random() * 360,
-      speedMps: visual === 'car' ? 1.45 + Math.random() * 0.7 : 1.0 + Math.random() * 0.8,
+      speedMps: 1.0 + Math.random() * 0.8,
       phaseOffsetM: Math.random() * LOOP_LENGTH_M,
-      visual,
+      visual: 'walker',
     }
     const dir: 1 | -1 = Math.random() < 0.5 ? 1 : -1
     const beh = createBehavior(agent.id, road.path, dir)
