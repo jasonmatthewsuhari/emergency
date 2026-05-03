@@ -1,0 +1,375 @@
+<mxfile host="app.diagrams.net" modified="2026-04-27T00:00:00.000Z" agent="Claude Code" version="21.0.0" type="device">
+  <diagram id="sightline-arch" name="Sightline Architecture">
+    <mxGraphModel dx="1422" dy="762" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1654" pageHeight="1169" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+
+        <!-- ==================== TITLE ==================== -->
+        <mxCell id="title" value="Sightline — Application Architecture" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=22;fontStyle=1;fontColor=#1a1a2e;" vertex="1" parent="1">
+          <mxGeometry x="427" y="20" width="800" height="40" as="geometry" />
+        </mxCell>
+
+        <!-- ==================== ZONE: LANDING PAGE ==================== -->
+        <mxCell id="zone-landing" value="Landing Page (page.tsx)" style="swimlane;startSize=30;fillColor=#dae8fc;strokeColor=#6c8ebf;fontStyle=1;fontSize=13;rounded=1;arcSize=4;" vertex="1" parent="1">
+          <mxGeometry x="40" y="80" width="500" height="380" as="geometry" />
+        </mxCell>
+
+        <mxCell id="globe" value="🌍 Globe Selector&#xa;(Three.js / GlobePositioner)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="zone-landing">
+          <mxGeometry x="20" y="50" width="200" height="60" as="geometry" />
+        </mxCell>
+
+        <mxCell id="brief-form" value="📋 Brief Builder Form&#xa;Identity / Visual / Campaign / Audience" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="zone-landing">
+          <mxGeometry x="20" y="140" width="200" height="60" as="geometry" />
+        </mxCell>
+
+        <mxCell id="creative-preview" value="🎨 Creative Preview&#xa;(LowPolyWalker 3D)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="zone-landing">
+          <mxGeometry x="20" y="240" width="200" height="60" as="geometry" />
+        </mxCell>
+
+        <mxCell id="landing-map" value="🗺 Landing Map Preview&#xa;(LandingMapPreview)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="zone-landing">
+          <mxGeometry x="20" y="310" width="200" height="55" as="geometry" />
+        </mxCell>
+
+        <mxCell id="brief-chat" value="💬 Brief Chat Assistant&#xa;(/api/brief-chat)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;" vertex="1" parent="zone-landing">
+          <mxGeometry x="270" y="50" width="200" height="60" as="geometry" />
+        </mxCell>
+
+        <mxCell id="company-brief-ui" value="🏢 Company Brief&#xa;(URL → /api/company-brief)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;" vertex="1" parent="zone-landing">
+          <mxGeometry x="270" y="140" width="200" height="60" as="geometry" />
+        </mxCell>
+
+        <mxCell id="field-reword-ui" value="✏️ Field Reword&#xa;(/api/field-reword)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;" vertex="1" parent="zone-landing">
+          <mxGeometry x="270" y="220" width="200" height="60" as="geometry" />
+        </mxCell>
+
+        <mxCell id="gen-creative-ui" value="⚡ Generate Creative&#xa;(/api/generate-creative)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;" vertex="1" parent="zone-landing">
+          <mxGeometry x="270" y="305" width="200" height="60" as="geometry" />
+        </mxCell>
+
+        <!-- ==================== ZONE: MAP PAGE ==================== -->
+        <mxCell id="zone-map" value="Map Page (/map)" style="swimlane;startSize=30;fillColor=#d5e8d4;strokeColor=#82b366;fontStyle=1;fontSize=13;rounded=1;arcSize=4;" vertex="1" parent="1">
+          <mxGeometry x="580" y="80" width="660" height="380" as="geometry" />
+        </mxCell>
+
+        <!-- MapCanvas -->
+        <mxCell id="mapcanvas" value="MapCanvas.tsx&#xa;(Deck.GL + Mapbox)" style="swimlane;startSize=25;fillColor=#d5e8d4;strokeColor=#82b366;fontStyle=1;fontSize=11;rounded=1;" vertex="1" parent="zone-map">
+          <mxGeometry x="15" y="45" width="340" height="320" as="geometry" />
+        </mxCell>
+
+        <mxCell id="layer-building" value="BuildingLayer" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#82b366;fontColor=#ffffff;strokeColor=#6d8764;fontSize=10;" vertex="1" parent="mapcanvas">
+          <mxGeometry x="10" y="35" width="130" height="35" as="geometry" />
+        </mxCell>
+        <mxCell id="layer-billboard" value="BillboardLayer" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#82b366;fontColor=#ffffff;strokeColor=#6d8764;fontSize=10;" vertex="1" parent="mapcanvas">
+          <mxGeometry x="155" y="35" width="130" height="35" as="geometry" />
+        </mxCell>
+        <mxCell id="layer-traffic" value="TrafficFlowLayer" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#82b366;fontColor=#ffffff;strokeColor=#6d8764;fontSize=10;" vertex="1" parent="mapcanvas">
+          <mxGeometry x="10" y="85" width="130" height="35" as="geometry" />
+        </mxCell>
+        <mxCell id="layer-ooh" value="OohInventoryLayer" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#82b366;fontColor=#ffffff;strokeColor=#6d8764;fontSize=10;" vertex="1" parent="mapcanvas">
+          <mxGeometry x="155" y="85" width="130" height="35" as="geometry" />
+        </mxCell>
+        <mxCell id="layer-veg" value="VegetationLayer" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#82b366;fontColor=#ffffff;strokeColor=#6d8764;fontSize=10;" vertex="1" parent="mapcanvas">
+          <mxGeometry x="10" y="135" width="130" height="35" as="geometry" />
+        </mxCell>
+        <mxCell id="layer-fixture" value="StreetFixtureLayer" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#82b366;fontColor=#ffffff;strokeColor=#6d8764;fontSize=10;" vertex="1" parent="mapcanvas">
+          <mxGeometry x="155" y="135" width="130" height="35" as="geometry" />
+        </mxCell>
+        <mxCell id="layer-agent" value="PedestrianAgentLayer" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#82b366;fontColor=#ffffff;strokeColor=#6d8764;fontSize=10;" vertex="1" parent="mapcanvas">
+          <mxGeometry x="10" y="185" width="130" height="35" as="geometry" />
+        </mxCell>
+        <mxCell id="layer-crowd" value="CrowdLayer (Three.js)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#82b366;fontColor=#ffffff;strokeColor=#6d8764;fontSize=10;" vertex="1" parent="mapcanvas">
+          <mxGeometry x="155" y="185" width="130" height="35" as="geometry" />
+        </mxCell>
+        <mxCell id="layer-selection" value="SelectionLayer" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#82b366;fontColor=#ffffff;strokeColor=#6d8764;fontSize=10;" vertex="1" parent="mapcanvas">
+          <mxGeometry x="10" y="235" width="130" height="35" as="geometry" />
+        </mxCell>
+        <mxCell id="layer-preview" value="BillboardPreviewLayer" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#82b366;fontColor=#ffffff;strokeColor=#6d8764;fontSize=10;" vertex="1" parent="mapcanvas">
+          <mxGeometry x="155" y="235" width="130" height="35" as="geometry" />
+        </mxCell>
+
+        <!-- Panels -->
+        <mxCell id="zone-panels" value="Panels &amp; Overlays" style="swimlane;startSize=20;fillColor=#ffe6cc;strokeColor=#d79b00;fontStyle=1;fontSize=10;rounded=1;" vertex="1" parent="zone-map">
+          <mxGeometry x="370" y="45" width="275" height="320" as="geometry" />
+        </mxCell>
+
+        <mxCell id="panel-toolbar" value="MapToolbar" style="rounded=1;whiteSpace=wrap;html=1;fontSize=10;fillColor=#FFD966;strokeColor=#d79b00;" vertex="1" parent="zone-panels">
+          <mxGeometry x="10" y="30" width="120" height="35" as="geometry" />
+        </mxCell>
+        <mxCell id="panel-billboard-studio" value="BillboardStudioPanel" style="rounded=1;whiteSpace=wrap;html=1;fontSize=10;fillColor=#FFD966;strokeColor=#d79b00;" vertex="1" parent="zone-panels">
+          <mxGeometry x="145" y="30" width="120" height="35" as="geometry" />
+        </mxCell>
+        <mxCell id="panel-streetview" value="StreetViewPanel" style="rounded=1;whiteSpace=wrap;html=1;fontSize=10;fillColor=#FFD966;strokeColor=#d79b00;" vertex="1" parent="zone-panels">
+          <mxGeometry x="10" y="85" width="120" height="35" as="geometry" />
+        </mxCell>
+        <mxCell id="panel-dashboard" value="DashboardOverlay" style="rounded=1;whiteSpace=wrap;html=1;fontSize=10;fillColor=#FFD966;strokeColor=#d79b00;" vertex="1" parent="zone-panels">
+          <mxGeometry x="145" y="85" width="120" height="35" as="geometry" />
+        </mxCell>
+        <mxCell id="panel-agency" value="AgencyDemoPanel" style="rounded=1;whiteSpace=wrap;html=1;fontSize=10;fillColor=#FFD966;strokeColor=#d79b00;" vertex="1" parent="zone-panels">
+          <mxGeometry x="10" y="140" width="120" height="35" as="geometry" />
+        </mxCell>
+        <mxCell id="panel-area" value="AreaConfirmDialog" style="rounded=1;whiteSpace=wrap;html=1;fontSize=10;fillColor=#FFD966;strokeColor=#d79b00;" vertex="1" parent="zone-panels">
+          <mxGeometry x="145" y="140" width="120" height="35" as="geometry" />
+        </mxCell>
+        <mxCell id="panel-streetcursor" value="StreetViewCursor" style="rounded=1;whiteSpace=wrap;html=1;fontSize=10;fillColor=#FFD966;strokeColor=#d79b00;" vertex="1" parent="zone-panels">
+          <mxGeometry x="10" y="195" width="120" height="35" as="geometry" />
+        </mxCell>
+        <mxCell id="panel-polaroid" value="PolaroidStream" style="rounded=1;whiteSpace=wrap;html=1;fontSize=10;fillColor=#FFD966;strokeColor=#d79b00;" vertex="1" parent="zone-panels">
+          <mxGeometry x="145" y="195" width="120" height="35" as="geometry" />
+        </mxCell>
+
+        <!-- ==================== ZONE: API ROUTES ==================== -->
+        <mxCell id="zone-api" value="API Routes (Next.js Server)" style="swimlane;startSize=30;fillColor=#e1d5e7;strokeColor=#9673a6;fontStyle=1;fontSize=13;rounded=1;arcSize=4;" vertex="1" parent="1">
+          <mxGeometry x="40" y="500" width="760" height="290" as="geometry" />
+        </mxCell>
+
+        <mxCell id="api-company-brief" value="/api/company-brief&#xa;companyBrief.ts → Claude" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d0a0e0;strokeColor=#9673a6;fontSize=10;" vertex="1" parent="zone-api">
+          <mxGeometry x="20" y="50" width="160" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="api-gen-creative" value="/api/generate-creative&#xa;Claude + Wavespeed AI" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d0a0e0;strokeColor=#9673a6;fontSize=10;" vertex="1" parent="zone-api">
+          <mxGeometry x="200" y="50" width="160" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="api-brief-chat" value="/api/brief-chat&#xa;Claude Streaming" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d0a0e0;strokeColor=#9673a6;fontSize=10;" vertex="1" parent="zone-api">
+          <mxGeometry x="380" y="50" width="160" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="api-field-reword" value="/api/field-reword&#xa;Claude API" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d0a0e0;strokeColor=#9673a6;fontSize=10;" vertex="1" parent="zone-api">
+          <mxGeometry x="560" y="50" width="160" height="50" as="geometry" />
+        </mxCell>
+
+        <mxCell id="api-scene" value="/api/scene-response&#xa;Claude Vision API" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d0a0e0;strokeColor=#9673a6;fontSize=10;" vertex="1" parent="zone-api">
+          <mxGeometry x="20" y="130" width="160" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="api-map-preview" value="/api/map-preview&#xa;Cached OOH JSON" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d0a0e0;strokeColor=#9673a6;fontSize=10;" vertex="1" parent="zone-api">
+          <mxGeometry x="200" y="130" width="160" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="api-agency-demo" value="/api/agency-demo&#xa;agencyDemo.ts events" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d0a0e0;strokeColor=#9673a6;fontSize=10;" vertex="1" parent="zone-api">
+          <mxGeometry x="380" y="130" width="160" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="api-simulate" value="/api/simulate&#xa;Pedestrian simulation" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d0a0e0;strokeColor=#9673a6;fontSize=10;" vertex="1" parent="zone-api">
+          <mxGeometry x="560" y="130" width="160" height="50" as="geometry" />
+        </mxCell>
+
+        <mxCell id="api-vegetation" value="/api/vegetation&#xa;Overpass OSM" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d0a0e0;strokeColor=#9673a6;fontSize=10;" vertex="1" parent="zone-api">
+          <mxGeometry x="20" y="215" width="155" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="api-street-fixtures" value="/api/street-fixtures&#xa;Overpass OSM" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d0a0e0;strokeColor=#9673a6;fontSize=10;" vertex="1" parent="zone-api">
+          <mxGeometry x="195" y="215" width="155" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="api-traffic" value="/api/traffic-density&#xa;Overpass roads" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d0a0e0;strokeColor=#9673a6;fontSize=10;" vertex="1" parent="zone-api">
+          <mxGeometry x="370" y="215" width="155" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="api-ooh-map" value="/api/ooh-map&#xa;OOH Inventory" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d0a0e0;strokeColor=#9673a6;fontSize=10;" vertex="1" parent="zone-api">
+          <mxGeometry x="545" y="215" width="155" height="50" as="geometry" />
+        </mxCell>
+
+        <!-- ==================== ZONE: EXTERNAL SERVICES ==================== -->
+        <mxCell id="zone-ext" value="External Services &amp; Data" style="swimlane;startSize=30;fillColor=#f5f5f5;strokeColor=#666666;fontColor=#333333;fontStyle=1;fontSize=13;rounded=1;arcSize=4;" vertex="1" parent="1">
+          <mxGeometry x="840" y="500" width="400" height="290" as="geometry" />
+        </mxCell>
+
+        <mxCell id="ext-claude" value="🤖 Claude API&#xa;(Anthropic)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f0e0ff;strokeColor=#9673a6;fontSize=11;" vertex="1" parent="zone-ext">
+          <mxGeometry x="20" y="50" width="160" height="55" as="geometry" />
+        </mxCell>
+        <mxCell id="ext-wavespeed" value="⚡ Wavespeed AI&#xa;(Image / Video Gen)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f0e0ff;strokeColor=#9673a6;fontSize=11;" vertex="1" parent="zone-ext">
+          <mxGeometry x="210" y="50" width="160" height="55" as="geometry" />
+        </mxCell>
+        <mxCell id="ext-mapbox" value="🗺 Mapbox GL&#xa;(Tiles + Terrain)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=11;" vertex="1" parent="zone-ext">
+          <mxGeometry x="20" y="135" width="160" height="55" as="geometry" />
+        </mxCell>
+        <mxCell id="ext-overpass" value="🌐 Overpass API&#xa;(OpenStreetMap)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=11;" vertex="1" parent="zone-ext">
+          <mxGeometry x="210" y="135" width="160" height="55" as="geometry" />
+        </mxCell>
+        <mxCell id="ext-ooh-json" value="📦 OOH JSON Cache&#xa;(public/generated/*.json)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=11;" vertex="1" parent="zone-ext">
+          <mxGeometry x="20" y="220" width="160" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="ext-anim-json" value="🏃 Animation JSON&#xa;(ai4animation-low-poly-guy)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=11;" vertex="1" parent="zone-ext">
+          <mxGeometry x="210" y="220" width="160" height="50" as="geometry" />
+        </mxCell>
+
+        <!-- ==================== ZONE: LIB UTILITIES ==================== -->
+        <mxCell id="zone-lib" value="Lib Utilities (src/lib)" style="swimlane;startSize=30;fillColor=#fff2cc;strokeColor=#d6b656;fontStyle=1;fontSize=13;rounded=1;arcSize=4;" vertex="1" parent="1">
+          <mxGeometry x="840" y="80" width="400" height="380" as="geometry" />
+        </mxCell>
+
+        <mxCell id="lib-overpass" value="overpass.ts&#xa;Buildings / POIs / Roads / Veg / Fixtures" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6b0;strokeColor=#d6b656;fontSize=10;" vertex="1" parent="zone-lib">
+          <mxGeometry x="15" y="50" width="175" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="lib-geo" value="geoUtils.ts&#xa;Haversine / GeoJSON / Circle" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6b0;strokeColor=#d6b656;fontSize=10;" vertex="1" parent="zone-lib">
+          <mxGeometry x="205" y="50" width="175" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="lib-elevation" value="elevation.ts&#xa;Mapbox Terrain Elevation" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6b0;strokeColor=#d6b656;fontSize=10;" vertex="1" parent="zone-lib">
+          <mxGeometry x="15" y="120" width="175" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="lib-spawn" value="spawnAgents.ts&#xa;Agent spawn in radius" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6b0;strokeColor=#d6b656;fontSize=10;" vertex="1" parent="zone-lib">
+          <mxGeometry x="205" y="120" width="175" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="lib-behavior" value="agentBehaviors.ts&#xa;Reynolds steering (wander/sep/boundary)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6b0;strokeColor=#d6b656;fontSize=10;" vertex="1" parent="zone-lib">
+          <mxGeometry x="15" y="190" width="175" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="lib-company" value="companyBrief.ts&#xa;Web scrape → Claude → CompanyBrief" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6b0;strokeColor=#d6b656;fontSize=10;" vertex="1" parent="zone-lib">
+          <mxGeometry x="205" y="190" width="175" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="lib-scene" value="sceneResponse.ts&#xa;Claude Vision + budget tracking" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6b0;strokeColor=#d6b656;fontSize=10;" vertex="1" parent="zone-lib">
+          <mxGeometry x="15" y="260" width="175" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="lib-managed" value="anthropicManagedAgents.ts&#xa;Managed Agent sessions + streaming" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6b0;strokeColor=#d6b656;fontSize=10;" vertex="1" parent="zone-lib">
+          <mxGeometry x="205" y="260" width="175" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="lib-agency-demo" value="agencyDemo.ts&#xa;Staged demo workflow events" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6b0;strokeColor=#d6b656;fontSize=10;" vertex="1" parent="zone-lib">
+          <mxGeometry x="110" y="330" width="175" height="40" as="geometry" />
+        </mxCell>
+
+        <!-- ==================== ARROWS: LANDING → API ==================== -->
+        <mxCell id="e1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#b85450;exitX=0.5;exitY=1;exitDx=0;exitDy=0;" edge="1" source="company-brief-ui" target="api-company-brief" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e2" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#b85450;" edge="1" source="gen-creative-ui" target="api-gen-creative" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e3" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#b85450;" edge="1" source="brief-chat" target="api-brief-chat" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e4" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#b85450;" edge="1" source="field-reword-ui" target="api-field-reword" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- LANDING → MAP (enter map button) -->
+        <mxCell id="e-land-map" value="Enter Map&#xa;(lat/lng params)" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#6c8ebf;fontStyle=2;fontSize=10;" edge="1" source="zone-landing" target="zone-map" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- MAP CANVAS → API ROUTES -->
+        <mxCell id="e-map-scene" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#82b366;" edge="1" source="zone-map" target="api-scene" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e-map-agency" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#82b366;" edge="1" source="zone-map" target="api-agency-demo" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e-map-sim" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#82b366;" edge="1" source="zone-map" target="api-simulate" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e-map-ooh" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#82b366;" edge="1" source="zone-map" target="api-ooh-map" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e-map-veg" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#82b366;" edge="1" source="zone-map" target="api-vegetation" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e-map-fix" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#82b366;" edge="1" source="zone-map" target="api-street-fixtures" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e-map-traf" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#82b366;" edge="1" source="zone-map" target="api-traffic" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- API → EXTERNAL SERVICES -->
+        <mxCell id="e-api-claude1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#9673a6;" edge="1" source="api-company-brief" target="ext-claude" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e-api-claude2" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#9673a6;" edge="1" source="api-gen-creative" target="ext-claude" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e-api-claude3" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#9673a6;" edge="1" source="api-brief-chat" target="ext-claude" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e-api-claude4" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#9673a6;" edge="1" source="api-field-reword" target="ext-claude" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e-api-claude5" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#9673a6;" edge="1" source="api-scene" target="ext-claude" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e-api-wavespeed" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#9673a6;" edge="1" source="api-gen-creative" target="ext-wavespeed" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e-api-overpass1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#666666;" edge="1" source="api-vegetation" target="ext-overpass" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e-api-overpass2" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#666666;" edge="1" source="api-street-fixtures" target="ext-overpass" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e-api-overpass3" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#666666;" edge="1" source="api-traffic" target="ext-overpass" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e-api-json1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#82b366;" edge="1" source="api-map-preview" target="ext-ooh-json" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e-api-json2" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#82b366;" edge="1" source="api-ooh-map" target="ext-ooh-json" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- MAP → EXTERNAL: Mapbox + animation -->
+        <mxCell id="e-map-mapbox" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#6c8ebf;" edge="1" source="zone-map" target="ext-mapbox" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e-map-anim" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#82b366;" edge="1" source="zone-map" target="ext-anim-json" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- API → LIB -->
+        <mxCell id="e-api-lib-overpass" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#d6b656;" edge="1" source="api-vegetation" target="lib-overpass" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e-api-lib-company" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#d6b656;" edge="1" source="api-company-brief" target="lib-company" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e-api-lib-scene" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#d6b656;" edge="1" source="api-scene" target="lib-scene" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e-api-lib-agency" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#d6b656;" edge="1" source="api-agency-demo" target="lib-agency-demo" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e-api-lib-managed" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#d6b656;" edge="1" source="api-agency-demo" target="lib-managed" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- MAP → LIB -->
+        <mxCell id="e-map-lib-spawn" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#d6b656;" edge="1" source="zone-map" target="lib-spawn" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e-map-lib-geo" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#d6b656;" edge="1" source="zone-map" target="lib-geo" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e-map-lib-elev" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#d6b656;" edge="1" source="zone-map" target="lib-elevation" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e-map-lib-behav" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#d6b656;" edge="1" source="zone-map" target="lib-behavior" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- ==================== LEGEND ==================== -->
+        <mxCell id="legend" value="Legend" style="swimlane;startSize=25;fillColor=#f5f5f5;strokeColor=#666666;fontStyle=1;fontColor=#333333;rounded=1;" vertex="1" parent="1">
+          <mxGeometry x="1280" y="80" width="340" height="215" as="geometry" />
+        </mxCell>
+        <mxCell id="leg1" value="UI Component (React)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=10;" vertex="1" parent="legend">
+          <mxGeometry x="15" y="35" width="150" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="leg2" value="Deck.GL Layer" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#82b366;fontColor=#ffffff;strokeColor=#6d8764;fontSize=10;" vertex="1" parent="legend">
+          <mxGeometry x="175" y="35" width="150" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="leg3" value="API Route (Next.js)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d0a0e0;strokeColor=#9673a6;fontSize=10;" vertex="1" parent="legend">
+          <mxGeometry x="15" y="80" width="150" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="leg4" value="Lib Utility" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6b0;strokeColor=#d6b656;fontSize=10;" vertex="1" parent="legend">
+          <mxGeometry x="175" y="80" width="150" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="leg5" value="External Service" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f0e0ff;strokeColor=#9673a6;fontSize=10;" vertex="1" parent="legend">
+          <mxGeometry x="15" y="125" width="150" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="leg6" value="Static File / Cache" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=10;" vertex="1" parent="legend">
+          <mxGeometry x="175" y="125" width="150" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="leg7" value="AI-powered call" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=10;" vertex="1" parent="legend">
+          <mxGeometry x="15" y="170" width="150" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="leg8" value="Panel / Overlay" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFD966;strokeColor=#d79b00;fontSize=10;" vertex="1" parent="legend">
+          <mxGeometry x="175" y="170" width="150" height="30" as="geometry" />
+        </mxCell>
+
+        <!-- ==================== TECH STACK BOX ==================== -->
+        <mxCell id="tech-stack" value="&lt;b&gt;Tech Stack&lt;/b&gt;&#xa;&#xa;Next.js 16 · React 19 · TypeScript&#xa;Deck.GL 9 · Mapbox GL 3 · Three.js 0.184&#xa;Tailwind CSS 4 · Vitest&#xa;&#xa;Claude API (Anthropic) · Wavespeed AI&#xa;Overpass API (OSM)" style="text;html=1;strokeColor=#666666;fillColor=#f5f5f5;align=left;verticalAlign=top;spacingLeft=8;whiteSpace=wrap;rounded=1;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="1280" y="320" width="340" height="180" as="geometry" />
+        </mxCell>
+
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

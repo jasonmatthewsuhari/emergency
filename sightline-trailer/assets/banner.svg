@@ -1,0 +1,205 @@
+<svg viewBox="0 0 1280 380" xmlns="http://www.w3.org/2000/svg" width="1280" height="380">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#080a10"/>
+      <stop offset="60%" stop-color="#0f1117"/>
+      <stop offset="100%" stop-color="#13161f"/>
+    </linearGradient>
+    <linearGradient id="amber" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#d97706"/>
+      <stop offset="100%" stop-color="#f59e0b"/>
+    </linearGradient>
+    <linearGradient id="amberV" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#f59e0b"/>
+      <stop offset="100%" stop-color="#d97706"/>
+    </linearGradient>
+    <linearGradient id="scoreRing" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#f59e0b"/>
+      <stop offset="100%" stop-color="#d97706"/>
+    </linearGradient>
+    <linearGradient id="cardBg" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#161925"/>
+      <stop offset="100%" stop-color="#0f1117"/>
+    </linearGradient>
+    <filter id="glow">
+      <feGaussianBlur stdDeviation="3" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <filter id="softglow">
+      <feGaussianBlur stdDeviation="8" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <clipPath id="card-clip">
+      <rect x="820" y="50" width="390" height="280" rx="16"/>
+    </clipPath>
+  </defs>
+
+  <!-- Background -->
+  <rect width="1280" height="380" fill="url(#bg)"/>
+
+  <!-- Subtle grid: vertical lines -->
+  <g opacity="0.04" stroke="#ffffff" stroke-width="1">
+    <line x1="160" y1="0" x2="160" y2="380"/>
+    <line x1="320" y1="0" x2="320" y2="380"/>
+    <line x1="480" y1="0" x2="480" y2="380"/>
+    <line x1="640" y1="0" x2="640" y2="380"/>
+    <line x1="800" y1="0" x2="800" y2="380"/>
+    <line x1="960" y1="0" x2="960" y2="380"/>
+    <line x1="1120" y1="0" x2="1120" y2="380"/>
+  </g>
+  <!-- Subtle grid: horizontal lines -->
+  <g opacity="0.04" stroke="#ffffff" stroke-width="1">
+    <line x1="0" y1="76" x2="1280" y2="76"/>
+    <line x1="0" y1="152" x2="1280" y2="152"/>
+    <line x1="0" y1="228" x2="1280" y2="228"/>
+    <line x1="0" y1="304" x2="1280" y2="304"/>
+  </g>
+
+  <!-- Amber glow blob behind card -->
+  <ellipse cx="1015" cy="190" rx="200" ry="140" fill="#d97706" opacity="0.06"/>
+
+  <!-- Left: top eyebrow -->
+  <text x="80" y="98"
+    font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif"
+    font-size="11" font-weight="600" fill="#d97706" letter-spacing="3" opacity="0.9">
+    BUILT WITH CLAUDE OPUS 4.7  ·  HACKATHON 2026
+  </text>
+
+  <!-- Left: main title -->
+  <text x="76" y="200"
+    font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif"
+    font-size="96" font-weight="900" fill="#ffffff" letter-spacing="-4">
+    SIGHTLINE
+  </text>
+
+  <!-- Amber accent bar -->
+  <rect x="80" y="214" width="340" height="4" rx="2" fill="url(#amber)"/>
+
+  <!-- Left: tagline -->
+  <text x="80" y="258"
+    font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif"
+    font-size="19" fill="#9ca3af" letter-spacing="0.2">
+    The synthetic wind tunnel for physical advertising.
+  </text>
+
+  <!-- Left: sub-line -->
+  <text x="80" y="286"
+    font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif"
+    font-size="15" fill="#6b7280">
+    Test your billboard before you buy it.
+  </text>
+
+  <!-- Left: pill badges -->
+  <!-- Badge 1 -->
+  <rect x="80" y="318" width="136" height="32" rx="16" fill="#d97706" opacity="0.12" stroke="#d97706" stroke-width="1" stroke-opacity="0.4"/>
+  <text x="148" y="339"
+    font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif"
+    font-size="12" font-weight="600" fill="#d97706" text-anchor="middle">Claude-powered</text>
+
+  <!-- Badge 2 -->
+  <rect x="228" y="318" width="106" height="32" rx="16" fill="#1e3a5f" opacity="0.6" stroke="#3b82f6" stroke-width="1" stroke-opacity="0.4"/>
+  <text x="281" y="339"
+    font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif"
+    font-size="12" font-weight="600" fill="#60a5fa" text-anchor="middle">deck.gl</text>
+
+  <!-- Badge 3 -->
+  <rect x="346" y="318" width="106" height="32" rx="16" fill="#1a2e1a" opacity="0.6" stroke="#22c55e" stroke-width="1" stroke-opacity="0.4"/>
+  <text x="399" y="339"
+    font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif"
+    font-size="12" font-weight="600" fill="#4ade80" text-anchor="middle">Next.js 16</text>
+
+  <!-- Right: Score card -->
+  <rect x="820" y="50" width="390" height="280" rx="16" fill="url(#cardBg)" stroke="#1f2335" stroke-width="1.5"/>
+
+  <!-- Card header -->
+  <text x="860" y="92"
+    font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif"
+    font-size="10" font-weight="700" fill="#d97706" letter-spacing="2.5">
+    SIGHTLINE INTELLIGENCE
+  </text>
+  <text x="860" y="118"
+    font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif"
+    font-size="22" font-weight="800" fill="#ffffff" letter-spacing="-0.5">
+    OOH Performance Cockpit
+  </text>
+
+  <!-- Divider -->
+  <line x1="840" y1="133" x2="1190" y2="133" stroke="#1f2335" stroke-width="1"/>
+
+  <!-- Score circle background -->
+  <circle cx="930" cy="218" r="66" fill="none" stroke="#1f2335" stroke-width="10"/>
+  <!-- Score arc: 86/100 → 309.6° of 360° → using stroke-dasharray trick -->
+  <circle cx="930" cy="218" r="66" fill="none"
+    stroke="url(#amber)" stroke-width="10"
+    stroke-dasharray="357.6 415.5"
+    stroke-dashoffset="103.7"
+    stroke-linecap="round"
+    transform="rotate(-90 930 218)"/>
+  <!-- Score number -->
+  <text x="930" y="210"
+    font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif"
+    font-size="44" font-weight="900" fill="#ffffff" text-anchor="middle">86</text>
+  <text x="930" y="232"
+    font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif"
+    font-size="13" fill="#6b7280" text-anchor="middle">/100</text>
+
+  <!-- Score label -->
+  <text x="930" y="302"
+    font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif"
+    font-size="11" font-weight="600" fill="#9ca3af" text-anchor="middle" letter-spacing="1">
+    SIGHTLINE SCORE
+  </text>
+
+  <!-- Right metrics column -->
+  <!-- Metric 1 -->
+  <text x="1055" y="165"
+    font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif"
+    font-size="10" fill="#6b7280" letter-spacing="1.5">VISIBILITY</text>
+  <rect x="1055" y="172" width="110" height="5" rx="2.5" fill="#1f2335"/>
+  <rect x="1055" y="172" width="94" height="5" rx="2.5" fill="url(#amber)"/>
+  <text x="1172" y="179"
+    font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif"
+    font-size="11" font-weight="700" fill="#ffffff" text-anchor="end">85%</text>
+
+  <!-- Metric 2 -->
+  <text x="1055" y="202"
+    font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif"
+    font-size="10" fill="#6b7280" letter-spacing="1.5">READABILITY</text>
+  <rect x="1055" y="209" width="110" height="5" rx="2.5" fill="#1f2335"/>
+  <rect x="1055" y="209" width="99" height="5" rx="2.5" fill="#22c55e" opacity="0.8"/>
+  <text x="1172" y="216"
+    font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif"
+    font-size="11" font-weight="700" fill="#ffffff" text-anchor="end">90%</text>
+
+  <!-- Metric 3 -->
+  <text x="1055" y="239"
+    font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif"
+    font-size="10" fill="#6b7280" letter-spacing="1.5">DWELL TIME</text>
+  <rect x="1055" y="246" width="110" height="5" rx="2.5" fill="#1f2335"/>
+  <rect x="1055" y="246" width="77" height="5" rx="2.5" fill="#3b82f6" opacity="0.9"/>
+  <text x="1172" y="253"
+    font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif"
+    font-size="11" font-weight="700" fill="#ffffff" text-anchor="end">70%</text>
+
+  <!-- Metric 4 -->
+  <text x="1055" y="276"
+    font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif"
+    font-size="10" fill="#6b7280" letter-spacing="1.5">OBSTRUCTION</text>
+  <rect x="1055" y="283" width="110" height="5" rx="2.5" fill="#1f2335"/>
+  <rect x="1055" y="283" width="22" height="5" rx="2.5" fill="#22c55e" opacity="0.8"/>
+  <text x="1172" y="290"
+    font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif"
+    font-size="11" font-weight="700" fill="#22c55e" text-anchor="end">Low</text>
+
+  <!-- Bottom amber strip -->
+  <rect x="820" y="318" width="390" height="12" rx="0" fill="url(#amber)" opacity="0.15"/>
+  <rect x="820" y="318" width="390" height="12" rx="0" fill="none" stroke="#1f2335" stroke-width="0"/>
+  <rect x="820" y="326" width="390" height="4" rx="0" fill="url(#amber)" opacity="0.4"/>
+
+  <!-- Bottom left: version tag -->
+  <text x="80" y="368"
+    font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif"
+    font-size="11" fill="#374151">
+    github.com/jasonmatthewsuhari/sightline
+  </text>
+</svg>

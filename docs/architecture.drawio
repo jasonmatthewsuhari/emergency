@@ -1,0 +1,160 @@
+<mxfile host="Electron" agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) draw.io/28.2.5 Chrome/138.0.7204.251 Electron/37.6.1 Safari/537.36" version="28.2.5">
+  <diagram id="sightline-arch" name="Sightline Architecture">
+    <mxGraphModel dx="1410" dy="857" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1654" pageHeight="1169" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="zone-landing" value="Landing Page (page.tsx)" style="swimlane;startSize=30;fillColor=#dae8fc;strokeColor=#6c8ebf;fontStyle=1;fontSize=13;rounded=1;arcSize=4;" parent="1" vertex="1">
+          <mxGeometry x="40" y="80" width="500" height="380" as="geometry" />
+        </mxCell>
+        <mxCell id="globe" value="🌍 Globe Selector&#xa;(Three.js / GlobePositioner)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" parent="zone-landing" vertex="1">
+          <mxGeometry x="20" y="50" width="200" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="brief-form" value="📋 Brief Builder Form&#xa;Identity / Visual / Campaign / Audience" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" parent="zone-landing" vertex="1">
+          <mxGeometry x="20" y="140" width="200" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="creative-preview" value="🎨 Creative Preview&#xa;(LowPolyWalker 3D)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" parent="zone-landing" vertex="1">
+          <mxGeometry x="20" y="240" width="200" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="landing-map" value="🗺 Landing Map Preview&#xa;(LandingMapPreview)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" parent="zone-landing" vertex="1">
+          <mxGeometry x="20" y="310" width="200" height="55" as="geometry" />
+        </mxCell>
+        <mxCell id="brief-chat" value="💬 Brief Chat Assistant&#xa;(/api/brief-chat)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;" parent="zone-landing" vertex="1">
+          <mxGeometry x="270" y="50" width="200" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="company-brief-ui" value="🏢 Company Brief&#xa;(URL → /api/company-brief)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;" parent="zone-landing" vertex="1">
+          <mxGeometry x="270" y="140" width="200" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="field-reword-ui" value="✏️ Field Reword&#xa;(/api/field-reword)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;" parent="zone-landing" vertex="1">
+          <mxGeometry x="270" y="220" width="200" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="gen-creative-ui" value="⚡ Generate Creative&#xa;(/api/generate-creative)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;" parent="zone-landing" vertex="1">
+          <mxGeometry x="270" y="305" width="200" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="zone-map" value="Map Page (/map)" style="swimlane;startSize=30;fillColor=#d5e8d4;strokeColor=#82b366;fontStyle=1;fontSize=13;rounded=1;arcSize=4;" parent="1" vertex="1">
+          <mxGeometry x="580" y="80" width="660" height="380" as="geometry" />
+        </mxCell>
+        <mxCell id="mapcanvas" value="MapCanvas.tsx&#xa;(Deck.GL + Mapbox)" style="swimlane;startSize=25;fillColor=#d5e8d4;strokeColor=#82b366;fontStyle=1;fontSize=11;rounded=1;" parent="zone-map" vertex="1">
+          <mxGeometry x="15" y="45" width="340" height="320" as="geometry" />
+        </mxCell>
+        <mxCell id="layer-building" value="BuildingLayer" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#82b366;fontColor=#ffffff;strokeColor=#6d8764;fontSize=10;" parent="mapcanvas" vertex="1">
+          <mxGeometry x="10" y="35" width="130" height="35" as="geometry" />
+        </mxCell>
+        <mxCell id="layer-billboard" value="BillboardLayer" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#82b366;fontColor=#ffffff;strokeColor=#6d8764;fontSize=10;" parent="mapcanvas" vertex="1">
+          <mxGeometry x="155" y="35" width="130" height="35" as="geometry" />
+        </mxCell>
+        <mxCell id="layer-traffic" value="TrafficFlowLayer" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#82b366;fontColor=#ffffff;strokeColor=#6d8764;fontSize=10;" parent="mapcanvas" vertex="1">
+          <mxGeometry x="10" y="85" width="130" height="35" as="geometry" />
+        </mxCell>
+        <mxCell id="layer-ooh" value="OohInventoryLayer" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#82b366;fontColor=#ffffff;strokeColor=#6d8764;fontSize=10;" parent="mapcanvas" vertex="1">
+          <mxGeometry x="155" y="85" width="130" height="35" as="geometry" />
+        </mxCell>
+        <mxCell id="layer-veg" value="VegetationLayer" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#82b366;fontColor=#ffffff;strokeColor=#6d8764;fontSize=10;" parent="mapcanvas" vertex="1">
+          <mxGeometry x="10" y="135" width="130" height="35" as="geometry" />
+        </mxCell>
+        <mxCell id="layer-fixture" value="StreetFixtureLayer" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#82b366;fontColor=#ffffff;strokeColor=#6d8764;fontSize=10;" parent="mapcanvas" vertex="1">
+          <mxGeometry x="155" y="135" width="130" height="35" as="geometry" />
+        </mxCell>
+        <mxCell id="layer-agent" value="PedestrianAgentLayer" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#82b366;fontColor=#ffffff;strokeColor=#6d8764;fontSize=10;" parent="mapcanvas" vertex="1">
+          <mxGeometry x="10" y="185" width="130" height="35" as="geometry" />
+        </mxCell>
+        <mxCell id="layer-crowd" value="CrowdLayer (Three.js)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#82b366;fontColor=#ffffff;strokeColor=#6d8764;fontSize=10;" parent="mapcanvas" vertex="1">
+          <mxGeometry x="155" y="185" width="130" height="35" as="geometry" />
+        </mxCell>
+        <mxCell id="layer-selection" value="SelectionLayer" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#82b366;fontColor=#ffffff;strokeColor=#6d8764;fontSize=10;" parent="mapcanvas" vertex="1">
+          <mxGeometry x="10" y="235" width="130" height="35" as="geometry" />
+        </mxCell>
+        <mxCell id="layer-preview" value="BillboardPreviewLayer" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#82b366;fontColor=#ffffff;strokeColor=#6d8764;fontSize=10;" parent="mapcanvas" vertex="1">
+          <mxGeometry x="155" y="235" width="130" height="35" as="geometry" />
+        </mxCell>
+        <mxCell id="zone-panels" value="Panels &amp; Overlays" style="swimlane;startSize=20;fillColor=#ffe6cc;strokeColor=#d79b00;fontStyle=1;fontSize=10;rounded=1;" parent="zone-map" vertex="1">
+          <mxGeometry x="370" y="45" width="275" height="320" as="geometry" />
+        </mxCell>
+        <mxCell id="panel-toolbar" value="MapToolbar" style="rounded=1;whiteSpace=wrap;html=1;fontSize=10;fillColor=#FFD966;strokeColor=#d79b00;" parent="zone-panels" vertex="1">
+          <mxGeometry x="10" y="30" width="120" height="35" as="geometry" />
+        </mxCell>
+        <mxCell id="panel-billboard-studio" value="BillboardStudioPanel" style="rounded=1;whiteSpace=wrap;html=1;fontSize=10;fillColor=#FFD966;strokeColor=#d79b00;" parent="zone-panels" vertex="1">
+          <mxGeometry x="145" y="30" width="120" height="35" as="geometry" />
+        </mxCell>
+        <mxCell id="panel-streetview" value="StreetViewPanel" style="rounded=1;whiteSpace=wrap;html=1;fontSize=10;fillColor=#FFD966;strokeColor=#d79b00;" parent="zone-panels" vertex="1">
+          <mxGeometry x="10" y="85" width="120" height="35" as="geometry" />
+        </mxCell>
+        <mxCell id="panel-dashboard" value="DashboardOverlay" style="rounded=1;whiteSpace=wrap;html=1;fontSize=10;fillColor=#FFD966;strokeColor=#d79b00;" parent="zone-panels" vertex="1">
+          <mxGeometry x="145" y="85" width="120" height="35" as="geometry" />
+        </mxCell>
+        <mxCell id="panel-agency" value="AgencyDemoPanel" style="rounded=1;whiteSpace=wrap;html=1;fontSize=10;fillColor=#FFD966;strokeColor=#d79b00;" parent="zone-panels" vertex="1">
+          <mxGeometry x="10" y="140" width="120" height="35" as="geometry" />
+        </mxCell>
+        <mxCell id="panel-area" value="AreaConfirmDialog" style="rounded=1;whiteSpace=wrap;html=1;fontSize=10;fillColor=#FFD966;strokeColor=#d79b00;" parent="zone-panels" vertex="1">
+          <mxGeometry x="145" y="140" width="120" height="35" as="geometry" />
+        </mxCell>
+        <mxCell id="panel-streetcursor" value="StreetViewCursor" style="rounded=1;whiteSpace=wrap;html=1;fontSize=10;fillColor=#FFD966;strokeColor=#d79b00;" parent="zone-panels" vertex="1">
+          <mxGeometry x="10" y="195" width="120" height="35" as="geometry" />
+        </mxCell>
+        <mxCell id="panel-polaroid" value="PolaroidStream" style="rounded=1;whiteSpace=wrap;html=1;fontSize=10;fillColor=#FFD966;strokeColor=#d79b00;" parent="zone-panels" vertex="1">
+          <mxGeometry x="145" y="195" width="120" height="35" as="geometry" />
+        </mxCell>
+        <mxCell id="zone-api" value="API Routes (Next.js Server)" style="swimlane;startSize=30;fillColor=#e1d5e7;strokeColor=#9673a6;fontStyle=1;fontSize=13;rounded=1;arcSize=4;" parent="1" vertex="1">
+          <mxGeometry x="40" y="500" width="760" height="290" as="geometry" />
+        </mxCell>
+        <mxCell id="api-company-brief" value="/api/company-brief&#xa;companyBrief.ts → Claude" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d0a0e0;strokeColor=#9673a6;fontSize=10;" parent="zone-api" vertex="1">
+          <mxGeometry x="20" y="50" width="160" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="api-gen-creative" value="/api/generate-creative&#xa;Claude + Wavespeed AI" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d0a0e0;strokeColor=#9673a6;fontSize=10;" parent="zone-api" vertex="1">
+          <mxGeometry x="200" y="50" width="160" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="api-brief-chat" value="/api/brief-chat&#xa;Claude Streaming" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d0a0e0;strokeColor=#9673a6;fontSize=10;" parent="zone-api" vertex="1">
+          <mxGeometry x="380" y="50" width="160" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="api-field-reword" value="/api/field-reword&#xa;Claude API" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d0a0e0;strokeColor=#9673a6;fontSize=10;" parent="zone-api" vertex="1">
+          <mxGeometry x="560" y="50" width="160" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="api-scene" value="/api/scene-response&#xa;Claude Vision API" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d0a0e0;strokeColor=#9673a6;fontSize=10;" parent="zone-api" vertex="1">
+          <mxGeometry x="20" y="130" width="160" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="api-map-preview" value="/api/map-preview&#xa;Cached OOH JSON" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d0a0e0;strokeColor=#9673a6;fontSize=10;" parent="zone-api" vertex="1">
+          <mxGeometry x="200" y="130" width="160" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="api-agency-demo" value="/api/agency-demo&#xa;agencyDemo.ts events" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d0a0e0;strokeColor=#9673a6;fontSize=10;" parent="zone-api" vertex="1">
+          <mxGeometry x="380" y="130" width="160" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="api-simulate" value="/api/simulate&#xa;Pedestrian simulation" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d0a0e0;strokeColor=#9673a6;fontSize=10;" parent="zone-api" vertex="1">
+          <mxGeometry x="560" y="130" width="160" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="api-vegetation" value="/api/vegetation&#xa;Overpass OSM" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d0a0e0;strokeColor=#9673a6;fontSize=10;" parent="zone-api" vertex="1">
+          <mxGeometry x="20" y="215" width="155" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="api-street-fixtures" value="/api/street-fixtures&#xa;Overpass OSM" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d0a0e0;strokeColor=#9673a6;fontSize=10;" parent="zone-api" vertex="1">
+          <mxGeometry x="195" y="215" width="155" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="api-traffic" value="/api/traffic-density&#xa;Overpass roads" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d0a0e0;strokeColor=#9673a6;fontSize=10;" parent="zone-api" vertex="1">
+          <mxGeometry x="370" y="215" width="155" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="api-ooh-map" value="/api/ooh-map&#xa;OOH Inventory" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d0a0e0;strokeColor=#9673a6;fontSize=10;" parent="zone-api" vertex="1">
+          <mxGeometry x="545" y="215" width="155" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="zone-ext" value="External Services &amp; Data" style="swimlane;startSize=30;fillColor=#f5f5f5;strokeColor=#666666;fontColor=#333333;fontStyle=1;fontSize=13;rounded=1;arcSize=4;" parent="1" vertex="1">
+          <mxGeometry x="840" y="500" width="400" height="290" as="geometry" />
+        </mxCell>
+        <mxCell id="ext-claude" value="🤖 Claude API&#xa;(Anthropic)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f0e0ff;strokeColor=#9673a6;fontSize=11;" parent="zone-ext" vertex="1">
+          <mxGeometry x="20" y="50" width="160" height="55" as="geometry" />
+        </mxCell>
+        <mxCell id="ext-wavespeed" value="⚡ Wavespeed AI&#xa;(Image / Video Gen)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f0e0ff;strokeColor=#9673a6;fontSize=11;" parent="zone-ext" vertex="1">
+          <mxGeometry x="210" y="50" width="160" height="55" as="geometry" />
+        </mxCell>
+        <mxCell id="ext-mapbox" value="🗺 Mapbox GL&#xa;(Tiles + Terrain)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=11;" parent="zone-ext" vertex="1">
+          <mxGeometry x="20" y="135" width="160" height="55" as="geometry" />
+        </mxCell>
+        <mxCell id="ext-overpass" value="🌐 Overpass API&#xa;(OpenStreetMap)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=11;" parent="zone-ext" vertex="1">
+          <mxGeometry x="210" y="135" width="160" height="55" as="geometry" />
+        </mxCell>
+        <mxCell id="ext-ooh-json" value="📦 OOH JSON Cache&#xa;(public/generated/*.json)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=11;" parent="zone-ext" vertex="1">
+          <mxGeometry x="20" y="220" width="160" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="ext-anim-json" value="🏃 Animation JSON&#xa;(ai4animation-low-poly-guy)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=11;" parent="zone-ext" vertex="1">
+          <mxGeometry x="210" y="220" width="160" height="50" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
