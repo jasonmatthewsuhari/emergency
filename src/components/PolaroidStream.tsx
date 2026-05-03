@@ -107,10 +107,14 @@ function LivePolaroidRow({ capture, index }: { capture: AgentCapture; index: num
   const reverse = index % 2 === 1
   const rotation = ((index * 11) % 11) - 5
   const shift = ((index * 13) % 20) - 10
+  const palette = palettes[index % palettes.length]
 
   const cardStyle = {
     '--polaroid-rotation': `${rotation}deg`,
     '--polaroid-shift': `${shift}px`,
+    '--photo-a': palette[0],
+    '--photo-b': palette[1],
+    '--photo-c': palette[2],
     '--avatar-color': '#4991FF',
   } as CSSProperties
 
@@ -125,13 +129,17 @@ function LivePolaroidRow({ capture, index }: { capture: AgentCapture; index: num
         <p className="polaroid-copy__line line-2" style={{ opacity: 0.6 }}>{capture.billboardName}</p>
       </div>
       <figure className="polaroid-card is-standard" style={cardStyle}>
-        <div className="polaroid-photo polaroid-photo--live" aria-hidden="true">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={capture.imageUrl}
-            alt=""
-            style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }}
-          />
+        <div className={capture.imageUrl ? 'polaroid-photo polaroid-photo--live' : 'polaroid-photo'} aria-hidden="true">
+          {capture.imageUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={capture.imageUrl}
+              alt=""
+              style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }}
+            />
+          ) : (
+            <span />
+          )}
         </div>
         <figcaption className="polaroid-meta">
           <span className="polaroid-avatar" aria-hidden="true" />
