@@ -19,15 +19,15 @@ import StreetViewPanel from '@/components/StreetViewPanel'
 import StreetViewCursor from '@/components/StreetViewCursor'
 import { makeBuildingLayers } from '@/layers/BuildingLayer'
 import { makeBillboardLayers } from '@/layers/BillboardLayer'
-import { makeOohInventoryLayers } from '@/layers/OohInventoryLayer'
-import { makeSelectionLayer } from '@/layers/SelectionLayer'
+import { makeSelectionLayer, makeSelectionMaskLayer } from '@/layers/SelectionLayer'
 import CrowdLayer from '@/components/CrowdLayer'
 import BillboardMeshLayer from '@/components/BillboardMeshLayer'
+import OohBillboardMeshLayer from '@/components/OohBillboardMeshLayer'
 import { makeStreetFixtureLayers } from '@/layers/StreetFixtureLayer'
 import { makeTrafficFlowLayers } from '@/layers/TrafficFlowLayer'
 import { makeCircleCoords, haversineKm } from '@/lib/geoUtils'
 import { fetchTrafficDensity, fetchRoads } from '@/lib/overpass'
-import { spawnAgentsInRadius, spawnAgentsFromTraffic } from '@/lib/spawnAgents'
+import { spawnAgentsInRadius, spawnAgentsFromTraffic, spawnAgentsOnRoads } from '@/lib/spawnAgents'
 import { createBehaviors, tickAgents } from '@/lib/agentBehaviors'
 import type {
   AgentBehavior,
@@ -52,6 +52,16 @@ const MAPBOX_TOKEN = process.env.NEXT_PUBLIC_MAPBOX_TOKEN
 const SELECTION_RADIUS_KM = 1
 const WALK_DATA_URL = '/generated/ai4animation-low-poly-guy.json'
 const OOH_POINT_LIMIT = 6000
+
+const OOH_DOT_COLOR: Record<string, [number, number, number]> = {
+  bb: [255, 207,  92],
+  db: [ 73, 145, 255],
+  bs: [145, 214, 196],
+  ds: [120, 220, 255],
+  mu: [255, 116, 160],
+  sf: [194, 160, 255],
+  tr: [255, 151,  83],
+}
 
 const INITIAL_VIEW_STATE = {
   longitude: -118.2437,
@@ -369,6 +379,7 @@ export default function MapCanvas({ focusArea, countryIso }: { focusArea?: { lat
   const [animationTime, setAnimationTime] = useState(0)
   const agentsRef = useRef<PedestrianAgent[]>([])
   const behaviorsRef = useRef<AgentBehavior[]>([])
+  const roadsRef = useRef<RoadSegment[]>([])
   const billboardsRef = useRef<BillboardPlacement[]>(INITIAL_BILLBOARDS)
   const sightingCooldownRef = useRef<Record<string, number>>({})
   const [sightingNotifications, setSightingNotifications] = useState<BillboardSighting[]>([])
@@ -379,6 +390,7 @@ export default function MapCanvas({ focusArea, countryIso }: { focusArea?: { lat
   const [streetFixtures, setStreetFixtures] = useState<StreetFixture[]>([])
   const [trafficPoints, setTrafficPoints] = useState<TrafficPoint[]>([])
   const [roads, setRoads] = useState<RoadSegment[]>([])
+  roadsRef.current = roads
   const [trafficStatus, setTrafficStatus] = useState('Select an area to see traffic flow.')
   const [flowTime, setFlowTime] = useState(0)
   const [streetFixtureStatus, setStreetFixtureStatus] = useState('Loading street fixtures...')
@@ -432,6 +444,22 @@ export default function MapCanvas({ focusArea, countryIso }: { focusArea?: { lat
         ...makeStreetFixtureLayers(streetFixtures, trafficPhaseTime),
         ...makeBillboardLayers(billboards, selectedBillboardId, setSelectedBillboardId),
         ...(pendingArea ?? selectedArea ? [makeSelectionLayer((pendingArea ?? selectedArea)!, SELECTION_RADIUS_KM)] : []),
+        new ScatterplotLayer<OohMapPoint>({
+          id: 'ooh-inventory-dots',
+          data: oohPoints,
+          getPosition: (p) => [p.position.lng, p.position.lat, 0],
+          getRadius: 3,
+          radiusMinPixels: 2,
+          radiusMaxPixels: 7,
+          radiusUnits: 'meters',
+          getFillColor: (p) => { const c = OOH_DOT_COLOR[p.mediaTypeCode] ?? [200, 210, 220]; return [c[0], c[1], c[2], 90] },
+          getLineColor: (p) => { const c = OOH_DOT_COLOR[p.mediaTypeCode] ?? [200, 210, 220]; return [c[0], c[1], c[2], 200] },
+          stroked: true,
+          filled: true,
+          getLineWidth: 1,
+          lineWidthUnits: 'pixels',
+          pickable: false,
+        }),
       ]
 
       // Sighting highlight: animated beam + agent ring + billboard ring
@@ -480,8 +508,13 @@ export default function MapCanvas({ focusArea, countryIso }: { focusArea?: { lat
         )
       }
 
+      // 3D void mask — rendered last so it covers all Deck.gl layers outside the selection
+      const withMask = selectedArea
+        ? [...base, makeSelectionMaskLayer(selectedArea, SELECTION_RADIUS_KM)]
+        : base
+
       // When a country ISO is set the Mapbox country layer handles masking — skip the Deck.gl circle mask
-      if (!focusArea || countryIso) return base
+      if (!focusArea || countryIso) return withMask
 
       const center: [number, number] = [focusArea.lng, focusArea.lat]
       const ring = new PathLayer({
@@ -493,7 +526,7 @@ export default function MapCanvas({ focusArea, countryIso }: { focusArea?: { lat
         widthUnits: 'pixels',
       })
 
-      return [...base, ring]
+      return [...withMask, ring]
     },
     [
       animationTime,
@@ -554,7 +587,7 @@ export default function MapCanvas({ focusArea, countryIso }: { focusArea?: { lat
 
       if (agentsRef.current.length > 0) {
         const center = contextAreaRef.current
-        const result = tickAgents(agentsRef.current, behaviorsRef.current, dt, center, 80)
+        const result = tickAgents(agentsRef.current, behaviorsRef.current, dt, center, 80, roadsRef.current)
         agentsRef.current = result.agents
         behaviorsRef.current = result.behaviors
 
@@ -903,21 +936,6 @@ export default function MapCanvas({ focusArea, countryIso }: { focusArea?: { lat
     const setup = () => {
       applyStandardStyleConfig(map, useCustomBuildings)
 
-      try {
-        if (!map.getSource('mapbox-dem')) {
-          map.addSource('mapbox-dem', {
-            type: 'raster-dem',
-            url: 'mapbox://mapbox.mapbox-terrain-dem-v1',
-            tileSize: 512,
-            maxzoom: 14,
-          })
-        }
-
-        map.setTerrain({ source: 'mapbox-dem', exaggeration: 1.5 })
-      } catch {
-        // Terrain is visual enhancement only; the map can still be considered ready.
-      }
-
       map.once('idle', markReady)
       window.setTimeout(markReady, 2500)
     }
@@ -949,7 +967,7 @@ export default function MapCanvas({ focusArea, countryIso }: { focusArea?: { lat
   }, [mapInstance, useCustomBuildings])
 
 
-  const addBillboardAt = useCallback((position: LatLng) => {
+  const addBillboardAt = useCallback((position: LatLng, heading?: number) => {
     const nextBillboard: BillboardPlacement = {
       id: `bb-${Date.now()}`,
       name: `Billboard ${billboards.length + 1}`,
@@ -957,7 +975,7 @@ export default function MapCanvas({ focusArea, countryIso }: { focusArea?: { lat
       widthM: 12,
       heightM: 5,
       clearanceM: 6,
-      heading: 90,
+      heading: heading ?? 90,
       format: 'digital',
       material: 'digital-day',
       creativeText: 'NEW LAUNCH',
@@ -1076,11 +1094,17 @@ export default function MapCanvas({ focusArea, countryIso }: { focusArea?: { lat
     setSelectedArea(pendingArea)
     setPendingArea(null)
 
-    const spawned = trafficPoints.length > 0
-      ? spawnAgentsFromTraffic(trafficPoints, 200, buildings)
-      : spawnAgentsInRadius(pendingArea, 800, 200, buildings)
+    let spawned, spawnedBehaviors
+    if (roads.length > 0) {
+      ({ agents: spawned, behaviors: spawnedBehaviors } = spawnAgentsOnRoads(roads, trafficPoints, 200, buildings))
+    } else {
+      spawned = trafficPoints.length > 0
+        ? spawnAgentsFromTraffic(trafficPoints, 200, buildings)
+        : spawnAgentsInRadius(pendingArea, 800, 200, buildings)
+      spawnedBehaviors = createBehaviors(spawned)
+    }
     agentsRef.current = spawned
-    behaviorsRef.current = createBehaviors(spawned)
+    behaviorsRef.current = spawnedBehaviors
     setFocusedAgentIdx(0)
     setHasCrowd(true)
 
@@ -1120,11 +1144,17 @@ export default function MapCanvas({ focusArea, countryIso }: { focusArea?: { lat
       behaviorsRef.current = []
       setHasCrowd(false)
     } else {
-      const spawned = trafficPoints.length > 0
-        ? spawnAgentsFromTraffic(trafficPoints, 200, buildings)
-        : spawnAgentsInRadius(contextArea, 800, 200, buildings)
+      let spawned, spawnedBehaviors
+      if (roadsRef.current.length > 0) {
+        ({ agents: spawned, behaviors: spawnedBehaviors } = spawnAgentsOnRoads(roadsRef.current, trafficPoints, 200, buildings))
+      } else {
+        spawned = trafficPoints.length > 0
+          ? spawnAgentsFromTraffic(trafficPoints, 200, buildings)
+          : spawnAgentsInRadius(contextArea, 800, 200, buildings)
+        spawnedBehaviors = createBehaviors(spawned)
+      }
       agentsRef.current = spawned
-      behaviorsRef.current = createBehaviors(spawned)
+      behaviorsRef.current = spawnedBehaviors
       setFocusedAgentIdx(0)
       setHasCrowd(true)
     }
@@ -1302,7 +1332,7 @@ export default function MapCanvas({ focusArea, countryIso }: { focusArea?: { lat
       )}
 
       {activeTool === 'dashboard' && (
-        <DashboardOverlay onClose={() => setActiveTool(null)} captures={agentCaptures} />
+        <DashboardOverlay onClose={() => setActiveTool(null)} captures={agentCaptures} billboards={billboards} oohPoints={oohPoints} mapboxToken={MAPBOX_TOKEN ?? ''} />
       )}
 
       {pendingArea && (
@@ -1322,7 +1352,13 @@ export default function MapCanvas({ focusArea, countryIso }: { focusArea?: { lat
       {activeTool === 'streetview' && streetViewLocation && (
         <StreetViewPanel
           location={streetViewLocation}
+          billboards={billboards}
           onClose={() => { setStreetViewLocation(null); setActiveTool(null) }}
+          onPlaceBillboard={(pos, heading) => {
+            addBillboardAt(pos, heading)
+            setStreetViewLocation(null)
+            setActiveTool('builder')
+          }}
         />
       )}
 
@@ -1410,7 +1446,7 @@ export default function MapCanvas({ focusArea, countryIso }: { focusArea?: { lat
         </div>
       )}
 
-      <MapToolbar activeTool={activeTool} onToolChange={setActiveTool} onSpawnCrowd={handleCrowdToggle} hasCrowd={hasCrowd} dashboardEnabled={hasCrowd} />
+      <MapToolbar activeTool={activeTool} onToolChange={setActiveTool} onSpawnCrowd={handleCrowdToggle} hasCrowd={hasCrowd} dashboardEnabled={true} />
 
       {sightingNotifications.length > 0 && (
         <div style={{
