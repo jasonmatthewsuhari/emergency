@@ -62,14 +62,22 @@ function loadMapsApi(key: string): Promise<void> {
   return _mapsPromise
 }
 
+const EYE_HEIGHT_M = 1.5  // street view camera height above ground
+
 // ── AR panorama view ──────────────────────────────────────────────────────────
 interface ProjectedBillboard {
   id: string
   x: number
-  y: number
+  y: number          // screen y of pole base (ground point)
   scale: number
-  visible: boolean
+  rotateY: number    // CSS rotateY degrees for perspective foreshortening
+  faceW: number      // face width px at scale 1
+  faceH: number      // face height px at scale 1
+  poleH: number      // pole height px at scale 1
+  mediaUrl?: string
+  primaryColor: string
   label: string
+  visible: boolean
 }
 
 interface StreetViewARViewProps {
@@ -121,37 +129,51 @@ function StreetViewARView({ location, apiKey, billboards, onPlaceBillboard }: St
           const dist = distanceTo(viewerPos, bb.position)
           if (dist > 400) continue
 
-          const heading = bearingTo(viewerPos, bb.position)
-          const centerHeightM = bb.clearanceM + bb.heightM / 2
-          const pitchDeg = Math.atan2(centerHeightM, Math.max(dist, 1)) * 180 / Math.PI
+          const headingToBB = bearingTo(viewerPos, bb.position)
+          const faceToViewer = ((headingToBB + 180) - bb.heading + 540) % 360 - 180
 
-          const dH = ((heading - pov.heading) + 540) % 360 - 180
-          const dP = pitchDeg - (pov.pitch ?? 0)
-
+          const dH = ((headingToBB - pov.heading) + 540) % 360 - 180
           const nx = dH / (hFOV / 2)
-          const ny = dP / (vFOV / 2)
 
+          // Horizontal screen position (use billboard center for x)
           const x = width / 2 + nx * (width / 2)
-          const y = height / 2 - ny * (height / 2)
 
-          // Physically correct angular size: how much of the FOV does this billboard occupy
+          // Anchor y at the pole base (ground level), accounting for eye height
+          const groundPitchDeg = -Math.atan2(EYE_HEIGHT_M, Math.max(dist, 1)) * 180 / Math.PI
+          const groundDp = groundPitchDeg - (pov.pitch ?? 0)
+          const groundNY = groundDp / (vFOV / 2)
+          const y = height / 2 - groundNY * (height / 2)
+
+          // Angular size → scale so physical dimensions map correctly to pixels
           const angularFrac = (2 * Math.atan2(bb.widthM / 2, Math.max(dist, 5))) / (hFOV * Math.PI / 180)
           const edgeFade = Math.max(0, 1 - Math.abs(nx) * 0.85)
           const scale = angularFrac * (width / BILLBOARD_W) * Math.pow(2, zoom - 1) * edgeFade
+
+          // Physical px dimensions at scale 1 (BILLBOARD_W is reference width at 1:1)
+          const faceW = BILLBOARD_W
+          const faceH = Math.round(bb.heightM * BILLBOARD_W / bb.widthM)
+          const poleH = Math.round(bb.clearanceM * BILLBOARD_W / bb.widthM)
 
           next.push({
             id: bb.id,
             x,
             y,
             scale,
-            visible: Math.abs(nx) < 1.3 && Math.abs(ny) < 1.5 && scale > 0.02,
+            rotateY: -faceToViewer,
+            faceW,
+            faceH,
+            poleH,
+            mediaUrl: bb.mediaUrl,
+            primaryColor: bb.primaryColor,
             label: bb.name,
+            visible: Math.abs(nx) < 1.5 && scale > 0.01,
           })
         }
         setProjected(next)
       }
 
       pano.addListener('pov_changed', project)
+      pano.addListener('position_changed', project)
       pano.addListener('status_changed', project)
     }).catch(() => {})
 
@@ -176,6 +198,7 @@ function StreetViewARView({ location, apiKey, billboards, onPlaceBillboard }: St
       {/* Overlay layer — sits above the Maps canvas, clips at container boundary */}
       <div style={{ position: 'absolute', inset: 0, overflow: 'hidden', pointerEvents: 'none', zIndex: 100 }}>
       {projected.filter(p => p.visible).map(p => (
+        // Outer div: screen-space position + uniform scale. Bottom edge = pole base = ground level.
         <div
           key={p.id}
           style={{
@@ -187,57 +210,61 @@ function StreetViewARView({ location, apiKey, billboards, onPlaceBillboard }: St
             willChange: 'transform, left, top',
           }}
         >
-          <img
-            src="/billboard-halo.svg"
-            alt=""
-            style={{
+          {/* Inner div: 3D rotation so billboard faces its real-world heading */}
+          <div style={{
+            transform: `perspective(900px) rotateY(${p.rotateY}deg)`,
+            transformOrigin: '50% 100%',
+            filter: 'brightness(0.82) contrast(1.08) saturate(0.88)',
+          }}>
+            {/* Name label */}
+            <div style={{
               position: 'absolute',
-              left: '50%',
-              bottom: BILLBOARD_POLE_H,
-              transform: 'translateX(-50%)',
-              width: BILLBOARD_W * 1.6,
-              height: BILLBOARD_H * 2.4,
-              opacity: 0.85,
-              pointerEvents: 'none',
-            }}
-          />
-          <div
-            style={{
-              position: 'absolute',
-              bottom: BILLBOARD_POLE_H + BILLBOARD_H + 6,
+              bottom: p.poleH + p.faceH + 4,
               left: '50%',
               transform: 'translateX(-50%)',
-              background: 'rgba(0,0,0,0.75)',
+              background: 'rgba(0,0,0,0.72)',
               color: '#009E73',
               fontFamily: 'monospace',
               fontSize: 9,
               letterSpacing: '0.1em',
               padding: '2px 6px',
               whiteSpace: 'nowrap',
-            }}
-          >
-            {p.label}
-          </div>
-          <img
-            src="/billboard-creative.svg"
-            alt={p.label}
-            style={{
-              display: 'block',
-              width: BILLBOARD_W,
-              height: BILLBOARD_H,
-              boxShadow: '0 8px 40px rgba(0,0,0,0.7)',
-              border: '2px solid rgba(255,255,255,0.12)',
-              position: 'relative',
-            }}
-          />
-          <div
-            style={{
-              width: 5,
-              height: BILLBOARD_POLE_H,
-              background: 'linear-gradient(to bottom, #999, #555)',
+            }}>
+              {p.label}
+            </div>
+
+            {/* Billboard face */}
+            {p.mediaUrl ? (
+              <img
+                src={p.mediaUrl}
+                alt={p.label}
+                style={{
+                  display: 'block',
+                  width: p.faceW,
+                  height: p.faceH,
+                  objectFit: 'cover',
+                  boxShadow: '0 4px 24px rgba(0,0,0,0.6), 0 0 0 3px rgba(0,0,0,0.4)',
+                }}
+              />
+            ) : (
+              <div style={{
+                display: 'block',
+                width: p.faceW,
+                height: p.faceH,
+                background: p.primaryColor,
+                boxShadow: '0 4px 24px rgba(0,0,0,0.6), 0 0 0 3px rgba(0,0,0,0.4)',
+              }} />
+            )}
+
+            {/* Structural pole */}
+            <div style={{
+              width: 6,
+              height: p.poleH,
+              background: 'linear-gradient(to right, #4a4a4a, #6e6e6e, #4a4a4a)',
               margin: '0 auto',
-            }}
-          />
+              boxShadow: '2px 0 4px rgba(0,0,0,0.4)',
+            }} />
+          </div>
         </div>
       ))}
       </div>{/* end overlay layer */}
