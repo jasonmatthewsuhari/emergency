@@ -551,12 +551,7 @@ export default function LandingPage() {
   ) => {
     setFocusPoint({ lat, lng })
     setFocusCountry(name && iso ? { name, iso, count } : null)
-    if (name && iso && leftView === 'hero') {
-      setChatMessages([])
-      setObMode('url')
-      setLeftView('brief')
-    }
-  }, [leftView])
+  }, [])
 
   const handleCountrySearch = useCallback((o: CountryOption) => {
     handleSelect(o.lat, o.lng, o.name, o.iso, o.count)
