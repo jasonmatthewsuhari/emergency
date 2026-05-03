@@ -316,7 +316,7 @@ function SiteScanPreview({ url, progress, status }: { url: string; progress: num
   const currentStep = SCAN_STEPS.reduce((active, step, index) => (
     progress >= step.threshold ? index : active
   ), 0)
-  const scrollOffset = Math.min(980, Math.max(0, progress - 8) * 10.5)
+  const scrollOffset = Math.min(1270, Math.max(0, progress - 8) * 13.8)
   const activeStep = SCAN_STEPS[currentStep]?.label ?? SCAN_STEPS[0].label
 
   return (
@@ -340,6 +340,7 @@ function SiteScanPreview({ url, progress, status }: { url: string; progress: num
           title="Website scan preview"
           src={url}
           referrerPolicy="no-referrer"
+          scrolling="no"
           style={{ transform: `translateY(-${scrollOffset}px)` }}
         />
         <div className="site-scan-line" />
@@ -372,42 +373,10 @@ function SiteScanPreview({ url, progress, status }: { url: string; progress: num
       </div>
       <div className="pow-badge-wrap">
         <div className="pow-badge">
-          <svg
-            className="pow-badge__svg"
-            viewBox="0 0 400 122"
-            xmlns="http://www.w3.org/2000/svg"
-            aria-hidden="true"
-          >
-            <defs>
-              <radialGradient id="pow-grad" cx="50%" cy="50%" r="52%">
-                <stop offset="0%" stopColor="#FFFDE7" />
-                <stop offset="60%" stopColor="#FFE01B" />
-                <stop offset="100%" stopColor="#FFC107" />
-              </radialGradient>
-            </defs>
-            <polygon
-              points="12,8 68,44 105,2 155,46 185,6 200,44 215,6 245,46 295,2 332,44 388,8 400,44 390,68 400,88 382,95 368,120 308,90 290,120 248,86 230,120 200,88 170,120 152,86 110,120 92,90 32,120 18,95 0,88 10,68 0,44 12,35"
-              fill="rgba(0,0,0,0.22)"
-              transform="translate(3,4)"
-            />
-            {([[12,8],[105,2],[185,6],[215,6],[295,2],[388,8],
-               [400,44],[400,88],[368,120],[290,120],[230,120],
-               [170,120],[110,120],[32,120],[0,88],[0,44]] as [number,number][]).map(([x,y], i) => (
-              <line key={i} x1="200" y1="62" x2={x} y2={y}
-                stroke="#000" strokeWidth="1" opacity="0.07" />
-            ))}
-            <polygon
-              points="12,8 68,44 105,2 155,46 185,6 200,44 215,6 245,46 295,2 332,44 388,8 400,44 390,68 400,88 382,95 368,120 308,90 290,120 248,86 230,120 200,88 170,120 152,86 110,120 92,90 32,120 18,95 0,88 10,68 0,44 12,35"
-              fill="url(#pow-grad)"
-              stroke="#0d0d0d"
-              strokeWidth="5"
-              strokeLinejoin="bevel"
-            />
-          </svg>
-          <div className="pow-badge__text">
-            <span className="pow-badge__top">powered by</span>
-            <span className="pow-badge__name">GPT Image 2</span>
-          </div>
+          <span className="pow-badge__mark" aria-hidden="true" />
+          <span className="pow-badge__label">Powered by</span>
+          <span className="pow-badge__divider" aria-hidden="true" />
+          <span className="pow-badge__name">GPT Image 2</span>
         </div>
       </div>
     </div>
@@ -625,16 +594,24 @@ export default function LandingPage() {
         : prev.length < 3 ? [...prev, adj] : prev
     )
 
-  const handleDrop = (e: React.DragEvent) => {
+  const readFileAsBase64 = (file: File): Promise<string> =>
+    new Promise((resolve, reject) => {
+      const reader = new FileReader()
+      reader.onload = () => resolve(reader.result as string)
+      reader.onerror = reject
+      reader.readAsDataURL(file)
+    })
+
+  const handleDrop = async (e: React.DragEvent) => {
     e.preventDefault()
     setDragOver(false)
     const file = e.dataTransfer.files?.[0]
-    if (file?.type.startsWith('image/')) setLogoPreview(URL.createObjectURL(file))
+    if (file?.type.startsWith('image/')) setLogoPreview(await readFileAsBase64(file))
   }
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
-    if (file) setLogoPreview(URL.createObjectURL(file))
+    if (file) setLogoPreview(await readFileAsBase64(file))
   }
 
   const buildBrief = (): CompanyBrief => ({
@@ -686,6 +663,14 @@ export default function LandingPage() {
     })
     setAdjectives([...brief.identity.brandAdjectives].filter(Boolean))
     setObjective(brief.campaign.campaignObjective ?? '')
+
+    if (brief.visualSystem.logoUrl) {
+      fetch(`/api/proxy-image?url=${encodeURIComponent(brief.visualSystem.logoUrl)}`)
+        .then(r => r.ok ? r.blob() : null)
+        .then(blob => blob ? readFileAsBase64(blob as File) : null)
+        .then(b64 => { if (b64) setLogoPreview(b64) })
+        .catch(() => {/* silently ignore logo fetch failures */})
+    }
   }
 
   const goBack = () => {
@@ -768,7 +753,7 @@ export default function LandingPage() {
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({
           brief, widthM: DEFAULT_WIDTH_M, heightM: DEFAULT_HEIGHT_M,
-          mode: creative.mode, promptOverride: editingPrompt.trim(),
+          mode: creative.mode, promptOverride: editingPrompt.trim(), logoBase64: logoPreview ?? undefined,
         }),
       })
       const json = await res.json() as { url?: string; prompt?: string; overlay?: CreativeOverlay; error?: string }
@@ -872,7 +857,7 @@ export default function LandingPage() {
     const res = await fetch('/api/generate-creative', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ brief, widthM: DEFAULT_WIDTH_M, heightM: DEFAULT_HEIGHT_M, mode }),
+      body: JSON.stringify({ brief, widthM: DEFAULT_WIDTH_M, heightM: DEFAULT_HEIGHT_M, mode, logoBase64: logoPreview ?? undefined }),
     })
     const json = await res.json() as { url?: string; prompt?: string; overlay?: CreativeOverlay; error?: string }
     if (!res.ok || json.error) throw new Error(json.error ?? `HTTP ${res.status}`)
@@ -950,9 +935,9 @@ export default function LandingPage() {
   }
 
   // ── Brief left-panel copy ──
-  const briefHeadline = obMode === 'url' ? ['YOUR', 'SITE']
+  const briefHeadline = obMode === 'url' ? ['YOUR SITE', '']
     : obMode === 'review' ? ['REVIEW', 'BRIEF']
-    : obMode === 'preview' ? ['YOUR', 'AD']
+    : obMode === 'preview' ? ['YOUR AD', '']
     : obMode === 'generating' ? ['ONE SEC', '']
     : ['THE', 'BRIEF']
   const briefSub = obMode === 'url'
@@ -1081,7 +1066,9 @@ export default function LandingPage() {
 
               <h1 className="headline" style={{ marginTop: '1.25rem' }}>
                 <span className="headline-line" data-text={briefHeadline[0]}>{briefHeadline[0]}</span>
-                <span className="headline-line accent-stroke" data-text={briefHeadline[1]}>{briefHeadline[1]}</span>
+                {briefHeadline[1] && (
+                  <span className="headline-line accent-stroke" data-text={briefHeadline[1]}>{briefHeadline[1]}</span>
+                )}
               </h1>
 
               <div className="color-bar">

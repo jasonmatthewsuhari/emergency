@@ -3,9 +3,9 @@ import type { CompanyBrief } from '@/types'
 
 export const maxDuration = 300
 
-const ANTHROPIC_API_URL = 'https://api.anthropic.com/v1/messages'
 const WAVESPEED_BASE = 'https://api.wavespeed.ai/api/v3'
 const OPENAI_API_URL = 'https://api.openai.com/v1/images/generations'
+const OPENAI_RESPONSES_URL = 'https://api.openai.com/v1/responses'
 
 interface GenerateCreativeRequest {
   brief: CompanyBrief
@@ -13,6 +13,7 @@ interface GenerateCreativeRequest {
   heightM: number
   mode: 'image' | 'video'
   promptOverride?: string
+  logoBase64?: string
 }
 
 // Convert hex color codes to natural language so the model doesn't render them as text
@@ -65,24 +66,20 @@ function cleanProviderPrompt(prompt: string): string {
 
 function buildFallbackPrompt(brief: CompanyBrief, widthM: number, heightM: number, mode: 'image' | 'video'): string {
   const orientation = widthM > heightM ? 'landscape' : widthM < heightM ? 'portrait' : 'square'
-  const negZone = widthM > heightM ? 'right third' : 'bottom quarter'
   const brandColor = brief.visualSystem.primaryColor
     ? hexToColorName(brief.visualSystem.primaryColor)
     : 'a deep brand color'
-  const style = brief.visualSystem.styleReference ?? 'modern premium commercial photography'
+  const style = brief.visualSystem.styleReference ?? 'modern premium commercial'
   const audience = brief.audience.description || 'the target audience'
   const message = brief.campaign.coreMessage || brief.identity.description
   const cta = brief.campaign.callToAction ? ` with the energy of "${brief.campaign.callToAction}"` : ''
-  const action = mode === 'video'
-    ? 'Seamlessly looping atmospheric moment:'
-    : 'Bold striking outdoor billboard image:'
+  const action = mode === 'video' ? 'Seamlessly looping atmospheric moment:' : 'Bold striking ad creative:'
 
   return cleanProviderPrompt([
     `${action} ${brief.identity.companyName}, ${brief.identity.industry} brand${cta}.`,
     `${style} visual style, ${orientation} format, dominated by ${brandColor} palette.`,
-    `Scene shows ${audience} experiencing ${message} — vivid, emotionally charged, full of energy.`,
-    `The ${negZone} of the frame is a completely flat solid ${brandColor} color field — no objects, textures, or people in that zone, reserved for text overlay.`,
-    'No typography, no letters, no logos, no symbols anywhere in the image.',
+    `Scene shows ${audience} experiencing ${message} — vivid, emotionally charged.`,
+    'No text or letters anywhere in the image.',
   ].join(' '))
 }
 
@@ -115,81 +112,21 @@ function getVideoAspectRatio(widthM: number, heightM: number): string {
   return '1:1'
 }
 
-async function buildPrompt(brief: CompanyBrief, widthM: number, heightM: number, mode: 'image' | 'video'): Promise<string> {
-  const apiKey = process.env.ANTHROPIC_API_KEY
-  if (!apiKey) throw new Error('Missing ANTHROPIC_API_KEY')
+function buildPrompt(brief: CompanyBrief, widthM: number, heightM: number, mode: 'image' | 'video'): string {
+  const ratio = widthM >= 1.4 * heightM ? '16:9' : widthM < 0.75 * heightM ? '9:16' : '1:1'
+  const color = brief.visualSystem.primaryColor
+    ? hexToColorName(brief.visualSystem.primaryColor)
+    : 'brand color'
+  const company = brief.identity.companyName
+  const desc = brief.identity.description || brief.identity.industry
+  const cta = brief.campaign.callToAction ? `. CTA: "${brief.campaign.callToAction}"` : ''
+  const tagline = brief.identity.tagline ? ` — "${brief.identity.tagline}"` : ''
+  const modeWord = mode === 'video' ? 'looping video ad' : 'ad'
+  const avoid = brief.visualSystem.avoidList?.length ? ` Do not show: ${brief.visualSystem.avoidList.join(', ')}.` : ''
 
-  const ratio = (widthM / heightM).toFixed(2)
-  const orientation = widthM > heightM ? 'landscape' : widthM < heightM ? 'portrait' : 'square'
-  const negZone = widthM > heightM ? 'right third' : 'bottom quarter'
-  const negSide = widthM > heightM ? 'right side' : 'bottom'
-
-  const system = `You are a world-class outdoor advertising creative director. You write image generation prompts that produce stunning, award-winning billboard visuals.
-
-Your prompts describe a complete visual scene with enough richness that an image model can render it without ambiguity. Great billboard art works in 3 seconds — one striking visual idea, bold color, and emotional clarity.
-
-What you produce:
-- A vivid, specific scene description: setting, subject, action, mood, lighting, color atmosphere. Be generous with visual detail — image models render better with more specificity.
-- The brand's personality and the CTA's energy should be baked into the visual mood. If the CTA is urgent, the image should feel urgent. If it's inviting, it should feel warm.
-- Composition matters: for the designated negative space zone (where brand name, tagline, and CTA text will be overlaid later), describe a clear, uncluttered area with a flat wash of the primary brand color. Nothing should bleed into this zone.
-- The primary brand color must dominate the palette — in the background, environment, lighting, or hero element.
-
-Hard constraints (non-negotiable):
-- Zero typography, letters, words, numbers, or symbols anywhere in the image.
-- The ${negZone} of the frame is a flat, solid, uninterrupted wash of the primary brand color — no objects, people, or textures in this zone. This is where the copy will be placed.
-- No watermarks, UI elements, or anything that looks like a frame or border.
-- For video: describe a single seamlessly looping atmospheric moment, not a narrative arc.
-
-Return ONLY the prompt. No preamble, no explanation.`
-
-  const ctaLine = brief.campaign.callToAction
-    ? `Call-to-action: "${brief.campaign.callToAction}" — the image's energy and mood should amplify this message`
-    : ''
-
-  const user = [
-    `Brand: ${brief.identity.companyName} (${brief.identity.industry})`,
-    `Brand personality: ${brief.identity.brandAdjectives.join(', ')}`,
-    brief.identity.tagline ? `Tagline: "${brief.identity.tagline}"` : '',
-    brief.identity.description ? `Brand story: ${brief.identity.description}` : '',
-    `Core campaign message: ${brief.campaign.coreMessage}`,
-    ctaLine,
-    `Target audience: ${brief.audience.description}`,
-    brief.audience.contextWhenSeen ? `Viewed while: ${brief.audience.contextWhenSeen}` : '',
-    `Visual style: ${brief.visualSystem.styleReference ?? 'modern premium commercial'}`,
-    `Primary brand color: ${brief.visualSystem.primaryColor ?? 'brand-appropriate'} — dominant in the image`,
-    brief.visualSystem.secondaryColor ? `Secondary color: ${brief.visualSystem.secondaryColor} — accent use` : '',
-    brief.visualSystem.avoidList?.length ? `Do not show: ${brief.visualSystem.avoidList.join(', ')}` : '',
-    `Format: ${orientation} billboard, aspect ratio ${ratio}`,
-    `Negative space zone for copy overlay: ${negZone} of the frame — flat solid primary brand color, nothing else`,
-    `Composition: main visual subject on the ${negSide === 'right side' ? 'left two-thirds' : 'upper three-quarters'}, negative zone on the ${negSide}`,
-    mode === 'video' ? 'Output type: seamlessly looping 5-second video moment' : 'Output type: single bold billboard image',
-  ].filter(Boolean).join('\n')
-
-  const res = await fetch(ANTHROPIC_API_URL, {
-    method: 'POST',
-    headers: {
-      'content-type': 'application/json',
-      'anthropic-version': '2023-06-01',
-      'x-api-key': apiKey,
-    },
-    body: JSON.stringify({
-      model: 'claude-sonnet-4-6',
-      max_tokens: 600,
-      system,
-      messages: [{ role: 'user', content: user }],
-    }),
-  })
-
-  if (!res.ok) {
-    const text = await res.text()
-    throw new Error(`Anthropic error ${res.status}: ${text.slice(0, 200)}`)
-  }
-
-  const json = await res.json() as { content: Array<{ type: string; text: string }> }
-  const raw = json.content.find(b => b.type === 'text')?.text?.trim()
-  if (!raw) throw new Error('Empty prompt from Claude')
-  // Strip any hex codes Claude included — they render as literal text in diffusion models
-  return cleanProviderPrompt(raw)
+  return cleanProviderPrompt(
+    `Make a ${ratio} ${modeWord} for ${company}${tagline}, ${desc}. Main color is ${color}${cta}.${avoid} No text in the image.`
+  )
 }
 
 interface WavespeedTaskResponse {
@@ -306,11 +243,49 @@ async function generateImageViaOpenAI(prompt: string, widthM: number, heightM: n
   throw new Error('OpenAI response missing both b64_json and url')
 }
 
-async function generateImage(prompt: string, widthM: number, heightM: number): Promise<string> {
+interface OpenAIResponsesOutput {
+  type: string
+  result?: string
+}
+
+async function generateImageViaOpenAIWithLogo(prompt: string, widthM: number, heightM: number, apiKey: string, logoBase64: string): Promise<string> {
+  const size = getBillboardImageSize(widthM, heightM)
+  const res = await fetch(OPENAI_RESPONSES_URL, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      model: 'gpt-image-1',
+      input: [
+        {
+          role: 'user',
+          content: [
+            { type: 'input_image', image_url: logoBase64, detail: 'high' },
+            { type: 'input_text', text: `${prompt} Reference the logo's visual identity and color palette.` },
+          ],
+        },
+      ],
+      tools: [{ type: 'image_generation', size }],
+    }),
+  })
+
+  if (!res.ok) {
+    const text = await res.text()
+    throw new Error(`OpenAI responses error ${res.status}: ${text.slice(0, 200)}`)
+  }
+
+  const json = await res.json() as { output?: OpenAIResponsesOutput[] }
+  const imgOutput = json.output?.find(o => o.type === 'image_generation_call')
+  if (!imgOutput?.result) throw new Error('No image in OpenAI Responses output')
+  return `data:image/png;base64,${imgOutput.result}`
+}
+
+async function generateImage(prompt: string, widthM: number, heightM: number, logoBase64?: string): Promise<string> {
+  const openaiKey = process.env.OPENAI_API_KEY
+  if (logoBase64 && openaiKey) return generateImageViaOpenAIWithLogo(prompt, widthM, heightM, openaiKey, logoBase64)
+
   const wavespeedKey = process.env.WAVESPEED_API_KEY
   if (wavespeedKey) return generateImageViaWavespeed(prompt, widthM, heightM, wavespeedKey)
 
-  const openaiKey = process.env.OPENAI_API_KEY
   if (openaiKey) return generateImageViaOpenAI(prompt, widthM, heightM, openaiKey)
 
   throw new Error('Missing API key: set WAVESPEED_API_KEY or OPENAI_API_KEY')
@@ -357,20 +332,20 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Invalid request body' }, { status: 400 })
   }
 
-  const { brief, widthM, heightM, mode, promptOverride } = body
+  const { brief, widthM, heightM, mode, promptOverride, logoBase64 } = body
   if (!brief || !mode || typeof widthM !== 'number' || typeof heightM !== 'number') {
     return NextResponse.json({ error: 'Missing required fields: brief, widthM, heightM, mode' }, { status: 400 })
   }
 
   try {
     const promptFromOverride = promptOverride?.trim()
-    let prompt = promptFromOverride || await buildPrompt(brief, widthM, heightM, mode)
+    let prompt = promptFromOverride || buildPrompt(brief, widthM, heightM, mode)
     let url: string
 
     try {
       url = mode === 'video'
         ? await generateVideo(prompt, widthM, heightM)
-        : await generateImage(prompt, widthM, heightM)
+        : await generateImage(prompt, widthM, heightM, logoBase64)
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err)
       if (promptFromOverride || !isProviderRejectedError(message)) throw err
@@ -378,7 +353,7 @@ export async function POST(req: NextRequest) {
       prompt = buildFallbackPrompt(brief, widthM, heightM, mode)
       url = mode === 'video'
         ? await generateVideo(prompt, widthM, heightM)
-        : await generateImage(prompt, widthM, heightM)
+        : await generateImage(prompt, widthM, heightM, logoBase64)
     }
 
     return NextResponse.json({

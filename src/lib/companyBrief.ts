@@ -15,6 +15,7 @@ interface PageSignals {
   keywords: string
   canonicalUrl: string
   faviconUrl: string
+  logoHints: string[]
   fontHints: string[]
   colorHints: string[]
   headHtml: string
@@ -86,12 +87,33 @@ export async function extractPageSignals(url: string): Promise<PageSignals> {
   const rawFavicon = linkHref('icon') || linkHref('shortcut icon') || '/favicon.ico'
   const faviconUrl = rawFavicon.startsWith('http') ? rawFavicon : `${base.origin}${rawFavicon.startsWith('/') ? '' : '/'}${rawFavicon}`
 
+  // Apple touch icon is often the highest-quality square logo available
+  const rawTouchIcon = linkHref('apple-touch-icon') || linkHref('apple-touch-icon-precomposed')
+  const touchIconUrl = rawTouchIcon
+    ? (rawTouchIcon.startsWith('http') ? rawTouchIcon : `${base.origin}${rawTouchIcon.startsWith('/') ? '' : '/'}${rawTouchIcon}`)
+    : ''
+
   const ogImage = metaContent('og:image')
   const ogImageAbs = ogImage.startsWith('http') ? ogImage : ogImage ? `${base.origin}${ogImage}` : ''
 
+  // Find <img> tags whose src/alt/class/id contain "logo"
+  const logoHints: string[] = []
+  const logoImgRe = /<img[^>]+>/gi
+  let lm: RegExpExecArray | null
+  while ((lm = logoImgRe.exec(html)) !== null) {
+    const tag = lm[0]
+    if (!/logo/i.test(tag)) continue
+    const srcMatch = tag.match(/src=["']([^"']+)["']/)
+    if (!srcMatch) continue
+    const src = srcMatch[1]
+    const abs = src.startsWith('http') ? src : `${base.origin}${src.startsWith('/') ? '' : '/'}${src}`
+    if (!logoHints.includes(abs)) logoHints.push(abs)
+  }
+  if (touchIconUrl && !logoHints.includes(touchIconUrl)) logoHints.unshift(touchIconUrl)
+
   // Extract h1/h2 headlines and button/CTA text from the page body
   const bodyStart = html.indexOf('<body')
-  const bodySlice = html.slice(bodyStart > 0 ? bodyStart : 12_000, 60_000)
+  const bodySlice = html.slice(bodyStart > 0 ? bodyStart : 12_000)
 
   function stripTags(s: string) {
     return s.replace(/<[^>]+>/g, ' ').replace(/&[a-z]+;/gi, ' ').replace(/\s+/g, ' ').trim()
@@ -132,6 +154,7 @@ export async function extractPageSignals(url: string): Promise<PageSignals> {
     keywords: metaContent('keywords'),
     canonicalUrl: linkHref('canonical') || url,
     faviconUrl,
+    logoHints: logoHints.slice(0, 5),
     fontHints: fontHints.slice(0, 8),
     colorHints: colorHints.slice(0, 20),
     headHtml: head.slice(0, 4_000),
@@ -188,6 +211,7 @@ export async function buildCompanyBrief(url: string): Promise<CompanyBrief> {
     `Twitter handle: ${signals.twitterSite}`,
     `Favicon: ${signals.faviconUrl}`,
     `OG image: ${signals.ogImage}`,
+    signals.logoHints.length ? `Logo image candidates (img tags with "logo" in attributes, or apple-touch-icon): ${signals.logoHints.join(', ')}` : '',
     `Font hints: ${signals.fontHints.join(', ')}`,
     `Hex color hints from page head: ${signals.colorHints.join(', ')}`,
     signals.bodyHeadlines.length ? `Page headlines (h1/h2): ${signals.bodyHeadlines.join(' | ')}` : '',
