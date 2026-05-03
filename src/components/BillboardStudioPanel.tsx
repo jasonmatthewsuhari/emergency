@@ -1,16 +1,10 @@
 'use client'
 
-import type { BillboardFormat, BillboardMaterial, BillboardPlacement, LatLng } from '@/types'
-
-type BillboardTool = 'select' | 'place'
+import type { BillboardFormat, BillboardMaterial, BillboardPlacement } from '@/types'
 
 interface BillboardStudioPanelProps {
   billboards: BillboardPlacement[]
   selectedBillboard: BillboardPlacement | null
-  selectedArea: LatLng | null
-  activeTool: BillboardTool
-  onToolChange: (tool: BillboardTool) => void
-  onAddBillboard: (position: LatLng) => void
   onSelectBillboard: (id: string) => void
   onUpdateBillboard: (id: string, patch: Partial<BillboardPlacement>) => void
   onDuplicateBillboard: (id: string) => void
@@ -28,10 +22,6 @@ const MATERIAL_LABELS: Record<BillboardMaterial, string> = {
   'digital-day': 'Digital day',
   'digital-night': 'Digital night',
   'printed-vinyl': 'Printed vinyl',
-}
-
-function formatCoord(area: LatLng) {
-  return `${area.lat.toFixed(5)}, ${area.lng.toFixed(5)}`
 }
 
 function clampNumber(value: number, min: number, max: number) {
@@ -53,10 +43,6 @@ function getTotalReach(billboards: BillboardPlacement[]) {
 export default function BillboardStudioPanel({
   billboards,
   selectedBillboard,
-  selectedArea,
-  activeTool,
-  onToolChange,
-  onAddBillboard,
   onSelectBillboard,
   onUpdateBillboard,
   onDuplicateBillboard,
@@ -78,25 +64,6 @@ export default function BillboardStudioPanel({
       </div>
       <div className="billboard-color-bar"><span /><span /><span /></div>
 
-      <div className="billboard-tools" role="group" aria-label="Placement tools">
-        <button
-          type="button"
-          className={activeTool === 'select' ? 'is-active' : ''}
-          onClick={() => onToolChange('select')}
-          title="Select and edit placements"
-        >
-          Select
-        </button>
-        <button
-          type="button"
-          className={activeTool === 'place' ? 'is-active' : ''}
-          onClick={() => onToolChange('place')}
-          title="Place a billboard on the map"
-        >
-          Place
-        </button>
-      </div>
-
       <div className="billboard-metrics">
         <div>
           <span>Avg score</span>
@@ -108,15 +75,6 @@ export default function BillboardStudioPanel({
         </div>
       </div>
 
-      <button
-        type="button"
-        className="billboard-secondary"
-        disabled={!selectedArea}
-        onClick={() => selectedArea && onAddBillboard(selectedArea)}
-      >
-        Add at Selected Area
-      </button>
-
       <div className="billboard-list">
         {billboards.map(billboard => (
           <button
@@ -127,7 +85,7 @@ export default function BillboardStudioPanel({
           >
             <span>
               <strong>{billboard.name}</strong>
-              <small>{FORMAT_LABELS[billboard.format]} / {formatCoord(billboard.position)}</small>
+              <small>{FORMAT_LABELS[billboard.format]} / {billboard.position.lat.toFixed(5)}, {billboard.position.lng.toFixed(5)}</small>
             </span>
             <em>{getScore(billboard)}</em>
           </button>
@@ -299,7 +257,7 @@ export default function BillboardStudioPanel({
           </div>
         </div>
       ) : (
-        <p className="billboard-empty">Select or place a billboard to edit its dimensions, creative, heading, and location.</p>
+        <p className="billboard-empty">Click the map to place a billboard, then click it to edit.</p>
       )}
     </aside>
   )
