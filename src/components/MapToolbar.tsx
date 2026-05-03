@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 
-export type MapTool = 'builder' | 'dashboard' | 'settings' | 'streetview' | null
+export type MapTool = 'builder' | 'dashboard' | 'settings' | 'streetview' | 'spawn-pedestrian' | null
 
 interface MapToolbarProps {
   activeTool: MapTool
@@ -10,23 +10,27 @@ interface MapToolbarProps {
   onSpawnCrowd?: () => void
   hasCrowd?: boolean
   dashboardEnabled?: boolean
+  showTrafficLines?: boolean
+  onTrafficLinesToggle?: () => void
 }
 
 const ACTIVE_COLOR: Record<string, string> = {
-  builder:    '#D02020',
-  dashboard:  '#1040C0',
-  settings:   '#F0C020',
-  streetview: '#009E73',
+  builder:            '#D02020',
+  dashboard:          '#1040C0',
+  settings:           '#F0C020',
+  streetview:         '#009E73',
+  'spawn-pedestrian': '#16a34a',
 }
 
 const LABEL: Record<string, string> = {
-  builder:    'Billboard Studio',
-  dashboard:  'OOH Cockpit',
-  settings:   'Scene Analysis',
-  streetview: 'Street View',
+  builder:            'Billboard Studio',
+  dashboard:          'OOH Cockpit',
+  settings:           'Scene Analysis',
+  streetview:         'Street View',
+  'spawn-pedestrian': 'Spawn Pedestrian',
 }
 
-export default function MapToolbar({ activeTool, onToolChange, onSpawnCrowd, hasCrowd, dashboardEnabled }: MapToolbarProps) {
+export default function MapToolbar({ activeTool, onToolChange, onSpawnCrowd, hasCrowd, dashboardEnabled, showTrafficLines, onTrafficLinesToggle }: MapToolbarProps) {
   const toggle = (tool: Exclude<MapTool, null>) => {
     onToolChange(activeTool === tool ? null : tool)
   }
@@ -46,12 +50,30 @@ export default function MapToolbar({ activeTool, onToolChange, onSpawnCrowd, has
       aria-label="Map tools"
     >
       <ToolButton
+        label={showTrafficLines === false ? 'Show foot traffic' : 'Hide foot traffic'}
+        active={showTrafficLines === false}
+        activeColor="#888888"
+        onClick={() => onTrafficLinesToggle?.()}
+      >
+        <TrafficLinesIcon />
+      </ToolButton>
+
+      <ToolButton
         label={hasCrowd ? 'Clear crowd' : 'Spawn crowd'}
         active={hasCrowd ?? false}
         activeColor="#7c3aed"
         onClick={() => onSpawnCrowd?.()}
       >
         <PersonIcon />
+      </ToolButton>
+
+      <ToolButton
+        label={activeTool === 'spawn-pedestrian' ? 'Cancel spawn' : LABEL['spawn-pedestrian']}
+        active={activeTool === 'spawn-pedestrian'}
+        activeColor={ACTIVE_COLOR['spawn-pedestrian']}
+        onClick={() => toggle('spawn-pedestrian')}
+      >
+        <SpawnPedestrianIcon />
       </ToolButton>
 
       <ToolButton
@@ -228,6 +250,31 @@ function SettingsIcon() {
       <circle cx="8" cy="6" r="2.5" fill="currentColor" stroke="none" />
       <circle cx="16" cy="12" r="2.5" fill="currentColor" stroke="none" />
       <circle cx="10" cy="18" r="2.5" fill="currentColor" stroke="none" />
+    </svg>
+  )
+}
+
+function SpawnPedestrianIcon() {
+  return (
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+      {/* person */}
+      <circle cx="10" cy="5" r="2.5" />
+      <path d="M6 14a4 4 0 0 1 8 0H6Z" />
+      <rect x="9" y="8" width="2" height="5" rx="1" />
+      {/* plus pin */}
+      <circle cx="18" cy="17" r="5" fill="none" stroke="currentColor" strokeWidth="2" />
+      <line x1="18" y1="14.5" x2="18" y2="19.5" stroke="currentColor" strokeWidth="2" strokeLinecap="square" />
+      <line x1="15.5" y1="17" x2="20.5" y2="17" stroke="currentColor" strokeWidth="2" strokeLinecap="square" />
+    </svg>
+  )
+}
+
+function TrafficLinesIcon() {
+  return (
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="square" aria-hidden="true">
+      <path d="M3 20 Q8 12 12 12 Q16 12 21 4" />
+      <path d="M3 14 Q7 10 10 10" strokeOpacity="0.5" />
+      <path d="M14 14 Q18 10 21 10" strokeOpacity="0.5" />
     </svg>
   )
 }
