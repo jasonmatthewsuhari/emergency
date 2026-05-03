@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="docs/assets/banner.svg" alt="Sightline — End-to-end OOH advertising intelligence" width="100%"/>
+<img src="assets/sightline_banner.png" alt="Sightline — End-to-end OOH advertising intelligence" width="100%"/>
 
 </div>
 

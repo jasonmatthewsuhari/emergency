@@ -73,7 +73,7 @@ export default function MapToolbar({ activeTool, onToolChange, onSpawnCrowd, has
       </ToolButton>
 
       <ToolButton
-        label={dashboardEnabled ? LABEL.dashboard : 'Select an area first'}
+        label={LABEL.dashboard}
         active={activeTool === 'dashboard'}
         activeColor={ACTIVE_COLOR.dashboard}
         disabled={!dashboardEnabled}
