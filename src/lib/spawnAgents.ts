@@ -1,4 +1,5 @@
-import type { Building, LatLng, PedestrianAgent, TrafficPoint } from '@/types'
+import type { AgentBehavior, Building, LatLng, PedestrianAgent, RoadSegment, TrafficPoint } from '@/types'
+import { createBehavior } from './agentBehaviors'
 
 const LOOP_LENGTH_M = 14
 const METERS_PER_LAT_DEGREE = 110540
@@ -118,4 +119,127 @@ export function spawnAgentsFromTraffic(
   }
 
   return agents
+}
+
+// --- road-following spawn ---
+
+function distanceMLocal(a: LatLng, b: LatLng): number {
+  const lngScale = METERS_PER_LNG_DEGREE * Math.cos(a.lat * Math.PI / 180)
+  const dlat = (b.lat - a.lat) * METERS_PER_LAT_DEGREE
+  const dlng = (b.lng - a.lng) * lngScale
+  return Math.sqrt(dlat * dlat + dlng * dlng)
+}
+
+function nearestWaypointIdx(pos: LatLng, path: LatLng[]): number {
+  let best = 0
+  let bestDist = Infinity
+  for (let i = 0; i < path.length; i++) {
+    const d = distanceMLocal(pos, path[i])
+    if (d < bestDist) { bestDist = d; best = i }
+  }
+  return best
+}
+
+/**
+ * Spawn agents on the road network, weighted by road kind and nearby traffic density.
+ * Returns agents AND their pre-assigned path-following behaviors so waypoints are wired up.
+ */
+export function spawnAgentsOnRoads(
+  roads: RoadSegment[],
+  trafficPoints: TrafficPoint[],
+  totalCount: number,
+  buildings: Building[] = [],
+): { agents: PedestrianAgent[]; behaviors: AgentBehavior[] } {
+  if (roads.length === 0) return { agents: [], behaviors: [] }
+
+  // Build per-road spawn weight = road.weight * (1 + sum of nearby traffic point weights)
+  const TRAFFIC_BOOST_RADIUS_M = 60
+  const roadWeights = roads.map(road => {
+    const midIdx = Math.floor(road.path.length / 2)
+    const mid = road.path[midIdx]
+    let boost = 0
+    for (const tp of trafficPoints) {
+      if (distanceMLocal(mid, tp.position) < TRAFFIC_BOOST_RADIUS_M) boost += tp.weight
+    }
+    return road.weight * (1 + boost)
+  })
+  const totalWeight = roadWeights.reduce((s, w) => s + w, 0)
+
+  const agents: PedestrianAgent[] = []
+  const behaviors: AgentBehavior[] = []
+  const ts = Date.now()
+
+  for (let n = 0; n < totalCount; n++) {
+    // Pick a road segment via weighted random
+    let r = Math.random() * totalWeight
+    let roadIdx = 0
+    for (let k = 0; k < roadWeights.length; k++) {
+      r -= roadWeights[k]
+      if (r <= 0) { roadIdx = k; break }
+    }
+    const road = roads[roadIdx]
+
+    // Pick a random waypoint on the road as spawn position
+    const spawnWpIdx = Math.floor(Math.random() * road.path.length)
+    const spawnPos = road.path[spawnWpIdx]
+
+    if (isInsideBuilding(spawnPos, buildings)) continue
+
+    const visual = n > 0 && n % 16 === 0 ? 'car' : 'walker'
+    const agent: PedestrianAgent = {
+      id: `pedestrian-${ts}-${n}`,
+      name: visual === 'car' ? `Car ${String(n + 1).padStart(3, '0')}` : `Pedestrian ${String(n + 1).padStart(3, '0')}`,
+      position: { ...spawnPos },
+      heading: 0,
+      speedMps: visual === 'car' ? 1.45 + Math.random() * 0.7 : 1.0 + Math.random() * 0.8,
+      phaseOffsetM: Math.random() * LOOP_LENGTH_M,
+      visual,
+    }
+
+    const waypointDir: 1 | -1 = Math.random() < 0.5 ? 1 : -1
+    const startIdx = waypointDir === 1
+      ? spawnWpIdx
+      : spawnWpIdx
+
+    // Set initial heading along the road
+    const nextIdx = Math.min(spawnWpIdx + 1, road.path.length - 1)
+    const prevIdx = Math.max(spawnWpIdx - 1, 0)
+    const refPoint = waypointDir === 1 ? road.path[nextIdx] : road.path[prevIdx]
+    if (refPoint && distanceMLocal(spawnPos, refPoint) > 0.1) {
+      const dlat = (refPoint.lat - spawnPos.lat) * METERS_PER_LAT_DEGREE
+      const dlng = (refPoint.lng - spawnPos.lng) * METERS_PER_LNG_DEGREE * Math.cos(spawnPos.lat * Math.PI / 180)
+      agent.heading = ((Math.atan2(dlng, dlat) * 180 / Math.PI) + 360) % 360
+    }
+
+    const behavior = createBehavior(agent.id, road.path, waypointDir)
+    behavior.waypointIdx = startIdx
+
+    agents.push(agent)
+    behaviors.push(behavior)
+  }
+
+  // Fill to totalCount if buildings caused skips
+  while (agents.length < totalCount && roads.length > 0) {
+    const road = roads[Math.floor(Math.random() * roads.length)]
+    const wpIdx = Math.floor(Math.random() * road.path.length)
+    const pos = road.path[wpIdx]
+    const n = agents.length
+    const visual = n > 0 && n % 16 === 0 ? 'car' : 'walker'
+    const agent: PedestrianAgent = {
+      id: `pedestrian-${ts}-fill-${n}`,
+      name: visual === 'car' ? `Car ${String(n + 1).padStart(3, '0')}` : `Pedestrian ${String(n + 1).padStart(3, '0')}`,
+      position: { ...pos },
+      heading: Math.random() * 360,
+      speedMps: visual === 'car' ? 1.45 + Math.random() * 0.7 : 1.0 + Math.random() * 0.8,
+      phaseOffsetM: Math.random() * LOOP_LENGTH_M,
+      visual,
+    }
+    const dir: 1 | -1 = Math.random() < 0.5 ? 1 : -1
+    const beh = createBehavior(agent.id, road.path, dir)
+    beh.waypointIdx = wpIdx
+    agents.push(agent)
+    behaviors.push(beh)
+  }
+
+  return { agents, behaviors }
 }

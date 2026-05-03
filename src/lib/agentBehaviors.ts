@@ -1,4 +1,4 @@
-import type { LatLng, PedestrianAgent } from '@/types'
+import type { AgentBehavior, AgentBehaviorState, LatLng, PedestrianAgent, RoadSegment } from '@/types'
 import { offsetLatLng } from './spawnAgents'
 
 // --- constants ---
@@ -29,17 +29,12 @@ const WALK_MAX = 14
 const IDLE_MIN = 1.5
 const IDLE_MAX = 4.0
 
-// --- types ---
+// path-following
+const WAYPOINT_REACH_M = 4.0       // distance to "arrive" at a waypoint
+const CONNECT_RADIUS_M = 20.0      // max distance between road endpoints to count as connected
 
-export type AgentBehaviorState = 'walking' | 'idle'
-
-export interface AgentBehavior {
-  agentId: string
-  state: AgentBehaviorState
-  angularVel: number    // current angular velocity, deg/s
-  stateTimer: number    // seconds until next state transition
-  wanderAngle: number   // current angle offset on the wander circle, degrees
-}
+// suppress unused import warning — AgentBehaviorState is re-exported for consumers
+export type { AgentBehavior, AgentBehaviorState }
 
 // --- helpers ---
 
@@ -66,13 +61,16 @@ function clamp(v: number, min: number, max: number): number {
 
 // --- public API ---
 
-export function createBehavior(agentId: string): AgentBehavior {
+export function createBehavior(agentId: string, waypoints: LatLng[] = [], waypointDir: 1 | -1 = 1): AgentBehavior {
   return {
     agentId,
     state: 'walking',
     angularVel: 0,
     stateTimer: WALK_MIN + Math.random() * (WALK_MAX - WALK_MIN),
     wanderAngle: Math.random() * 360,
+    waypoints,
+    waypointIdx: waypointDir === 1 ? 0 : Math.max(0, waypoints.length - 1),
+    waypointDir,
   }
 }
 
@@ -80,11 +78,51 @@ export function createBehaviors(agents: PedestrianAgent[]): AgentBehavior[] {
   return agents.map(a => createBehavior(a.id))
 }
 
+function findConnectingRoad(
+  endPoint: LatLng,
+  roads: RoadSegment[],
+  currentWaypoints: LatLng[],
+): { waypoints: LatLng[]; startIdx: number; dir: 1 | -1 } | null {
+  const candidates: Array<{ road: RoadSegment; fromEnd: boolean }> = []
+  for (const road of roads) {
+    const first = road.path[0]
+    const last = road.path[road.path.length - 1]
+    // Skip roads that share the same endpoints as current segment to avoid U-turns
+    const curFirst = currentWaypoints[0]
+    const curLast = currentWaypoints[currentWaypoints.length - 1]
+    if (
+      distanceM(first, curFirst) < CONNECT_RADIUS_M &&
+      distanceM(last, curLast) < CONNECT_RADIUS_M
+    ) continue
+    if (distanceM(endPoint, first) < CONNECT_RADIUS_M) {
+      candidates.push({ road, fromEnd: false })
+    } else if (distanceM(endPoint, last) < CONNECT_RADIUS_M) {
+      candidates.push({ road, fromEnd: true })
+    }
+  }
+  if (candidates.length === 0) return null
+  const total = candidates.reduce((s, c) => s + c.road.weight, 0)
+  let r = Math.random() * total
+  for (const c of candidates) {
+    r -= c.road.weight
+    if (r <= 0) {
+      return c.fromEnd
+        ? { waypoints: c.road.path, startIdx: c.road.path.length - 1, dir: -1 }
+        : { waypoints: c.road.path, startIdx: 0, dir: 1 }
+    }
+  }
+  const last = candidates[candidates.length - 1]
+  return last.fromEnd
+    ? { waypoints: last.road.path, startIdx: last.road.path.length - 1, dir: -1 }
+    : { waypoints: last.road.path, startIdx: 0, dir: 1 }
+}
+
 /**
  * Advance all agents by dt seconds. Mutates neither input array; returns new arrays.
  *
  * @param boundaryCenter  optional soft boundary — agents steer back toward center near the edge
  * @param boundaryRadiusM radius of that boundary
+ * @param roads           optional road network for intersection transitions
  */
 export function tickAgents(
   agents: PedestrianAgent[],
@@ -92,6 +130,7 @@ export function tickAgents(
   dt: number,
   boundaryCenter?: LatLng,
   boundaryRadiusM?: number,
+  roads?: RoadSegment[],
 ): { agents: PedestrianAgent[]; behaviors: AgentBehavior[] } {
   const nextAgents = agents.map(a => ({ ...a }))
   const nextBehaviors = behaviors.map(b => ({ ...b }))
@@ -101,20 +140,59 @@ export function tickAgents(
     const beh = nextBehaviors[i]
     if (!beh) continue
 
+    // --- path-following mode ---
+    if (beh.waypoints.length >= 2) {
+      const target = beh.waypoints[beh.waypointIdx]
+      const dist = distanceM(agent.position, target)
+
+      if (dist < WAYPOINT_REACH_M) {
+        const nextIdx = beh.waypointIdx + beh.waypointDir
+        if (nextIdx >= 0 && nextIdx < beh.waypoints.length) {
+          beh.waypointIdx = nextIdx
+        } else {
+          // Reached end of segment — try to transition to a connecting road
+          const endPoint = beh.waypoints[beh.waypointIdx]
+          const connected = roads ? findConnectingRoad(endPoint, roads, beh.waypoints) : null
+          if (connected) {
+            beh.waypoints = connected.waypoints
+            beh.waypointIdx = connected.startIdx
+            beh.waypointDir = connected.dir
+          } else {
+            // No connection found — reverse along the same segment
+            beh.waypointDir = (beh.waypointDir * -1) as 1 | -1
+            beh.waypointIdx = clamp(beh.waypointIdx + beh.waypointDir, 0, beh.waypoints.length - 1)
+          }
+        }
+      }
+
+      const desiredHeading = bearingBetween(agent.position, beh.waypoints[beh.waypointIdx])
+      const headingError = angleDiff(agent.heading, desiredHeading)
+      const angularForce = clamp(headingError * 4.0, -MAX_TURN_RATE, MAX_TURN_RATE)
+      beh.angularVel = beh.angularVel * ANGULAR_DAMPING + angularForce * (1 - ANGULAR_DAMPING)
+      beh.angularVel = clamp(beh.angularVel, -MAX_TURN_RATE, MAX_TURN_RATE)
+      agent.heading = ((agent.heading + beh.angularVel * dt) + 360) % 360
+      const moveRad = agent.heading * Math.PI / 180
+      agent.position = offsetLatLng(
+        agent.position,
+        Math.sin(moveRad) * agent.speedMps * dt,
+        Math.cos(moveRad) * agent.speedMps * dt,
+      )
+      continue
+    }
+
+    // --- free wander mode (no road assigned) ---
+
     beh.stateTimer -= dt
 
-    // --- idle state: stand still, then pick a new heading and resume ---
+    // idle state: stand still, then pick a new heading and resume
     if (beh.state === 'idle') {
       if (beh.stateTimer <= 0) {
         beh.state = 'walking'
         beh.stateTimer = WALK_MIN + Math.random() * (WALK_MAX - WALK_MIN)
-        // resume in a loosely random direction
         agent.heading = (agent.heading + (Math.random() - 0.5) * 160 + 360) % 360
       }
       continue
     }
-
-    // --- walking state ---
 
     if (beh.stateTimer <= 0) {
       beh.state = 'idle'
@@ -129,7 +207,6 @@ export function tickAgents(
     const headingRad = agent.heading * Math.PI / 180
     const wanderRad = (agent.heading + beh.wanderAngle) * Math.PI / 180
 
-    // wander target: center of circle + offset point on the circle rim
     const targetEast = Math.sin(headingRad) * WANDER_DISTANCE + Math.sin(wanderRad) * WANDER_RADIUS
     const targetNorth = Math.cos(headingRad) * WANDER_DISTANCE + Math.cos(wanderRad) * WANDER_RADIUS
     let desiredHeading = ((Math.atan2(targetEast, targetNorth) * 180 / Math.PI) + 360) % 360

@@ -168,6 +168,9 @@ export interface AgentBehavior {
   angularVel: number
   stateTimer: number
   wanderAngle: number
+  waypoints: LatLng[]
+  waypointIdx: number
+  waypointDir: 1 | -1
 }
 
 export interface TrafficPoint {
