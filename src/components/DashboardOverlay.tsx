@@ -2,7 +2,26 @@
 
 import { useEffect, useRef, useState, useCallback } from 'react'
 import PolaroidStream from '@/components/PolaroidStream'
-import type { AgentCapture } from '@/types'
+import type { AgentCapture, BillboardPlacement, OohMapPoint } from '@/types'
+
+function idToHeading(id: string): number {
+  let h = 5381
+  for (let i = 0; i < id.length; i++) h = ((h << 5) + h) ^ id.charCodeAt(i)
+  return ((h >>> 0) / 0xffffffff) * 360
+}
+
+function oohCamUrl(pt: OohMapPoint, token: string): string {
+  const heading = idToHeading(pt.id)
+  const d = 18
+  const rad = (heading * Math.PI) / 180
+  const R = 6371000
+  const dlat = (d / R) * Math.cos(rad) * (180 / Math.PI)
+  const dlng = (d / R) * Math.sin(rad) * (180 / Math.PI) / Math.cos(pt.position.lat * Math.PI / 180)
+  const camLat = pt.position.lat + dlat
+  const camLng = pt.position.lng + dlng
+  const bearing = ((heading + 180) % 360).toFixed(1)
+  return `https://api.mapbox.com/styles/v1/mapbox/streets-v12/static/${camLng.toFixed(6)},${camLat.toFixed(6)},18,${bearing},55/384x220@2x?access_token=${token}`
+}
 
 type MetricTone = 'good' | 'watch' | 'risk' | 'neutral'
 
@@ -33,7 +52,7 @@ interface BillboardData {
   abB: { score: number }
 }
 
-const billboards: BillboardData[] = [
+const MOCK_BILLBOARD_METRICS: BillboardData[] = [
   {
     id: 'orchard',
     name: 'Orchard MRT',
@@ -133,18 +152,25 @@ function BhMetricCard({ metric }: { metric: ScoreMetric }) {
 interface Props {
   onClose: () => void
   captures: AgentCapture[]
+  billboards?: BillboardPlacement[]
+  oohPoints?: OohMapPoint[]
+  mapboxToken?: string
 }
 
 interface ChatMsg { role: 'user' | 'assistant'; content: string }
 
-export default function DashboardOverlay({ onClose, captures }: Props) {
+export default function DashboardOverlay({ onClose, captures, billboards = [], oohPoints = [], mapboxToken = '' }: Props) {
   const [boardIndex, setBoardIndex] = useState(0)
+  const camPoints = oohPoints.length > 0 ? oohPoints.slice(0, 30) : []
+  const [camIdx, setCamIdx] = useState(0)
+  const safeCamIdx = camPoints.length > 0 ? camIdx % camPoints.length : 0
+  const activeCam = camPoints[safeCamIdx] ?? null
   const rightPanelRef = useRef<HTMLDivElement | null>(null)
 
   const total = captures.length
   const safeIndex = total > 0 ? Math.min(boardIndex, total - 1) : 0
   const capture = captures[safeIndex] ?? null
-  const metrics = billboards[safeIndex % billboards.length]
+  const metrics = MOCK_BILLBOARD_METRICS[safeIndex % MOCK_BILLBOARD_METRICS.length]
 
   // Chat state — reset when switching agents
   const [chatMsgs, setChatMsgs] = useState<ChatMsg[]>([])
@@ -236,96 +262,134 @@ export default function DashboardOverlay({ onClose, captures }: Props) {
             {/* Middle: path viz + agent card */}
             <div style={{ display: 'flex', flex: '0 0 42%', borderBottom: '4px solid #121212', overflow: 'hidden' }}>
 
-              {/* Path visualization */}
-              <div className="bh-path" style={{ flex: 1, minWidth: 0, position: 'relative' }}>
-                {capture?.imageUrl ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={capture.imageUrl} alt="Capture" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
-                ) : (
-                  <>
-                    <div className="bh-path__sightline bh-path__sightline--a" />
-                    <div className="bh-path__sightline bh-path__sightline--b" />
-                    <div className="bh-path__sightline bh-path__sightline--c" />
-                    <div className="bh-path__street" />
-                    <div className="bh-path__billboard">
-                      <span>{capture?.billboardName ?? metrics.headline}</span>
-                      <strong>{capture?.agentName ?? metrics.brand}</strong>
+              {/* Billboard cameras — single view with cycle */}
+              <div style={{ flex: 1, minWidth: 0, background: '#0e0e0e', display: 'flex', flexDirection: 'column', overflow: 'hidden', position: 'relative' }}>
+                {/* Image */}
+                <div style={{ flex: 1, position: 'relative', overflow: 'hidden' }}>
+                  {activeCam && mapboxToken ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={oohCamUrl(activeCam, mapboxToken)} alt={activeCam.mediaTypeLabel} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block', opacity: 0.9 }} />
+                  ) : (
+                    <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <span style={{ fontSize: 9, color: 'rgba(255,255,255,0.2)', fontWeight: 700, letterSpacing: '0.1em' }}>NO FEED</span>
                     </div>
-                    <div className="bh-path__marker bh-path__marker--pedestrian">{capture?.agentName ?? 'Pedestrian'}</div>
-                    <div className="bh-path__marker bh-path__marker--driver">Driver</div>
-                    <div className="bh-path__blocker bh-path__blocker--trees">Trees</div>
-                  </>
-                )}
-                {/* Speech bubble */}
-                {bubble && (
-                  <div style={{
-                    position: 'absolute',
-                    bottom: 170,
-                    left: '50%',
-                    transform: 'translateX(-50%)',
-                    width: '72%',
-                    background: '#fff',
-                    border: '2px solid #121212',
-                    padding: '6px 9px',
-                    fontSize: 10,
-                    fontWeight: 600,
-                    lineHeight: 1.45,
-                    color: '#121212',
-                    boxShadow: '2px 2px 0 #121212',
-                    pointerEvents: 'none',
-                    textAlign: 'center',
-                  }}>
-                    {bubble}
-                    {/* tail */}
-                    <div style={{
-                      position: 'absolute',
-                      bottom: -8, left: '50%', marginLeft: -6,
-                      width: 0, height: 0,
-                      borderLeft: '6px solid transparent',
-                      borderRight: '6px solid transparent',
-                      borderTop: '8px solid #121212',
-                    }} />
-                    <div style={{
-                      position: 'absolute',
-                      bottom: -5, left: '50%', marginLeft: -5,
-                      width: 0, height: 0,
-                      borderLeft: '5px solid transparent',
-                      borderRight: '5px solid transparent',
-                      borderTop: '7px solid #fff',
-                    }} />
+                  )}
+                  {/* Scan lines */}
+                  <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', backgroundImage: 'repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.1) 2px, rgba(0,0,0,0.1) 4px)' }} />
+                  {/* Top-left badge */}
+                  <div style={{ position: 'absolute', top: 6, left: 6, background: 'rgba(18,18,18,0.7)', color: 'rgba(255,255,255,0.55)', fontSize: 7, fontWeight: 900, letterSpacing: '0.12em', padding: '2px 5px' }}>
+                    {activeCam ? `CAM ${String(safeCamIdx + 1).padStart(2, '0')}` : 'NO CAM'}
                   </div>
-                )}
+                  {/* Label gradient */}
+                  {activeCam && (
+                    <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, background: 'linear-gradient(transparent, rgba(0,0,0,0.65))', padding: '14px 8px 28px', pointerEvents: 'none' }}>
+                      <div style={{ fontSize: 9, fontWeight: 800, color: '#fff', letterSpacing: '-0.01em' }}>{activeCam.mediaTypeLabel}</div>
+                    </div>
+                  )}
+                </div>
+                {/* Cycle bar */}
+                <div style={{ display: 'flex', alignItems: 'center', height: 26, borderTop: '2px solid rgba(255,255,255,0.07)', flexShrink: 0 }}>
+                  <button
+                    onClick={() => setCamIdx(i => (i - 1 + Math.max(camPoints.length, 1)) % Math.max(camPoints.length, 1))}
+                    disabled={camPoints.length < 2}
+                    style={{ width: 28, height: '100%', background: 'none', border: 'none', color: camPoints.length < 2 ? 'rgba(255,255,255,0.15)' : 'rgba(255,255,255,0.55)', fontSize: 10, fontWeight: 900, cursor: camPoints.length < 2 ? 'not-allowed' : 'pointer' }}
+                  >&lt;</button>
+                  <div style={{ flex: 1, textAlign: 'center', fontSize: 8, fontWeight: 900, letterSpacing: '0.1em', color: 'rgba(255,255,255,0.35)' }}>
+                    {camPoints.length > 0 ? `${safeCamIdx + 1} / ${camPoints.length}` : '—'}
+                  </div>
+                  <button
+                    onClick={() => setCamIdx(i => (i + 1) % Math.max(camPoints.length, 1))}
+                    disabled={camPoints.length < 2}
+                    style={{ width: 28, height: '100%', background: 'none', border: 'none', color: camPoints.length < 2 ? 'rgba(255,255,255,0.15)' : 'rgba(255,255,255,0.55)', fontSize: 10, fontWeight: 900, cursor: camPoints.length < 2 ? 'not-allowed' : 'pointer' }}
+                  >&gt;</button>
+                </div>
               </div>
 
-              {/* Agent card */}
+              {/* Camera feed */}
               <div style={{
                 flex: 1, minWidth: 0,
                 borderLeft: '4px solid #121212',
-                background: '#F0F0F0',
-                display: 'flex', flexDirection: 'column',
-                alignItems: 'center', justifyContent: 'center',
-                gap: 8, padding: '12px 8px',
+                background: '#0a0a0a',
+                position: 'relative',
+                overflow: 'hidden',
               }}>
+                {capture?.imageUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={capture.imageUrl}
+                    alt="Agent POV"
+                    style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block', opacity: 0.92 }}
+                  />
+                ) : (
+                  <div style={{
+                    width: '100%', height: '100%',
+                    display: 'flex', flexDirection: 'column',
+                    alignItems: 'center', justifyContent: 'center',
+                    gap: 6,
+                  }}>
+                    <div style={{ fontSize: 18, opacity: 0.25, color: '#fff' }}>⬛</div>
+                    <div style={{ fontSize: 8, fontWeight: 700, color: 'rgba(255,255,255,0.3)', letterSpacing: '0.15em', textTransform: 'uppercase' }}>No feed</div>
+                  </div>
+                )}
+
+                {/* Scan-line overlay */}
                 <div style={{
-                  width: 52, height: 52, borderRadius: '50%',
-                  border: '3px solid #121212',
-                  background: '#D02020',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  fontSize: 22, fontWeight: 900, color: '#fff',
-                  flexShrink: 0,
-                }}>
-                  {(capture?.agentName ?? metrics.brand)[0]}
-                </div>
-                <div style={{ textAlign: 'center' }}>
-                  <div style={{ fontSize: 11, fontWeight: 900, color: '#121212', letterSpacing: '-0.01em' }}>{capture?.agentName ?? metrics.brand}</div>
-                  <div style={{ fontSize: 8, fontWeight: 700, color: 'rgba(18,18,18,0.45)', letterSpacing: '0.12em', textTransform: 'uppercase', marginTop: 2 }}>{capture?.billboardName ?? metrics.name}</div>
-                </div>
+                  position: 'absolute', inset: 0, pointerEvents: 'none',
+                  backgroundImage: 'repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.08) 2px, rgba(0,0,0,0.08) 4px)',
+                }} />
+
+                {/* Top-right: LIVE badge + cycle button */}
                 <div style={{
-                  background: '#121212', color: '#F0C020',
-                  fontSize: 10, fontWeight: 900, letterSpacing: '0.06em',
-                  padding: '3px 8px',
+                  position: 'absolute', top: 6, right: 6,
+                  display: 'flex', gap: 4, alignItems: 'center',
                 }}>
-                  {metrics.score}
+                  <div style={{
+                    background: '#D02020', color: '#fff',
+                    fontSize: 8, fontWeight: 900, letterSpacing: '0.12em',
+                    padding: '2px 5px',
+                    display: 'flex', alignItems: 'center', gap: 3,
+                  }}>
+                    <span style={{
+                      width: 5, height: 5, borderRadius: '50%',
+                      background: '#fff',
+                      display: 'inline-block',
+                      animation: 'blink 1.2s step-start infinite',
+                    }} />
+                    LIVE
+                  </div>
+                  <button
+                    type="button"
+                    onClick={nextBoard}
+                    disabled={total < 2}
+                    title="Cycle agent"
+                    style={{
+                      background: 'rgba(18,18,18,0.75)',
+                      border: '1.5px solid rgba(255,255,255,0.35)',
+                      color: '#fff',
+                      fontSize: 10, fontWeight: 900,
+                      padding: '2px 7px',
+                      cursor: total < 2 ? 'not-allowed' : 'pointer',
+                      letterSpacing: '0.04em',
+                      lineHeight: 1.4,
+                    }}
+                  >
+                    {safeIndex + 1}/{total} →
+                  </button>
+                </div>
+
+                {/* Bottom: agent name + billboard */}
+                <div style={{
+                  position: 'absolute', bottom: 0, left: 0, right: 0,
+                  background: 'linear-gradient(transparent, rgba(0,0,0,0.72))',
+                  padding: '14px 8px 6px',
+                  pointerEvents: 'none',
+                }}>
+                  <div style={{ fontSize: 10, fontWeight: 900, color: '#fff', letterSpacing: '-0.01em' }}>
+                    {capture?.agentName ?? '—'}
+                  </div>
+                  <div style={{ fontSize: 8, fontWeight: 700, color: 'rgba(255,255,255,0.6)', letterSpacing: '0.1em', textTransform: 'uppercase', marginTop: 1 }}>
+                    {capture?.billboardName ?? metrics.name}
+                  </div>
                 </div>
               </div>
             </div>

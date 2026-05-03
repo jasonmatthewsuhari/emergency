@@ -46,6 +46,11 @@ html, body {
   100% { transform: translateX(-50%) scale(3);   opacity: 0; }
 }
 
+@keyframes blink {
+  0%, 49% { opacity: 1; }
+  50%, 100% { opacity: 0; }
+}
+
 /* Root */
 .landing-root {
   position: relative;
@@ -2814,6 +2819,63 @@ textarea {
   font-family: var(--font-outfit, 'Outfit', system-ui, sans-serif);
 }
 
+.bh-cam-thumb {
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  cursor: pointer;
+  border-bottom: 2px solid rgba(255,255,255,0.07);
+  transition: background 0.1s;
+}
+.bh-cam-thumb:hover { background: rgba(255,255,255,0.04); }
+.bh-cam-thumb.is-active { background: rgba(255,255,255,0.07); }
+
+.bh-cam-thumb__img {
+  position: relative;
+  width: 100%;
+  height: 110px;
+  overflow: hidden;
+  background: #1a1a1a;
+  flex-shrink: 0;
+}
+.bh-cam-thumb__img img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  opacity: 0.88;
+}
+.bh-cam-thumb__scanlines {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-image: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.1) 2px, rgba(0,0,0,0.1) 4px);
+}
+.bh-cam-thumb__badge {
+  position: absolute;
+  top: 5px;
+  left: 5px;
+  background: rgba(18,18,18,0.72);
+  color: rgba(255,255,255,0.6);
+  font-size: 7px;
+  font-weight: 900;
+  letter-spacing: 0.1em;
+  padding: 1px 4px;
+}
+.bh-cam-thumb__label {
+  padding: 5px 8px 6px;
+  font-size: 9px;
+  font-weight: 800;
+  color: rgba(255,255,255,0.75);
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.bh-cam-thumb.is-active .bh-cam-thumb__label {
+  color: #F0C020;
+}
+
 .bh-dash__left {
   display: flex;
   flex-direction: column;
@@ -4974,6 +5036,7 @@ textarea {
   background: #fff;
   transform-origin: top center;
   transition: transform 0.42s ease-out;
+  overflow: hidden;
 }
 
 .site-scan-line {
@@ -5154,74 +5217,61 @@ textarea {
   50% { transform: translateY(58px); opacity: 1; }
 }
 
-/* ── POW badge ── */
+/* ── Powered-by label (Bauhaus) ── */
 .pow-badge-wrap {
-  padding-top: 0.6rem;
+  padding-top: 0.5rem;
   width: 100%;
-  overflow: visible;
 }
 
 .pow-badge {
-  position: relative;
-  width: 100%;
-  overflow: visible;
-  animation: pow-pop 0.65s cubic-bezier(0.36, 0.07, 0.19, 0.97) both,
-             pow-wobble 2.8s ease-in-out 0.65s infinite;
-  transform-origin: center center;
-}
-
-.pow-badge__svg {
-  width: 100%;
-  height: auto;
-  display: block;
-  overflow: visible;
-}
-
-.pow-badge__text {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -52%) rotate(-4deg);
   display: flex;
-  flex-direction: column;
   align-items: center;
-  pointer-events: none;
-  white-space: nowrap;
-  gap: 0.05rem;
+  gap: 0.6rem;
+  width: 100%;
+  padding: 0.42rem 0.6rem;
+  background: #fff;
+  border: 1px solid #121212;
+  box-shadow: 3px 3px 0 0 #121212;
+  animation: pow-slide-in 0.28s cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation-delay: 0.1s;
 }
 
-.pow-badge__top {
-  font-size: 0.5rem;
-  font-weight: 900;
-  letter-spacing: 0.18em;
+.pow-badge__mark {
+  flex: 0 0 auto;
+  width: 0.52rem;
+  height: 0.52rem;
+  background: #D02020;
+}
+
+.pow-badge__label {
+  font-size: 0.54rem;
+  font-weight: 800;
+  letter-spacing: 0.1em;
   text-transform: uppercase;
-  color: rgba(0, 0, 0, 0.5);
+  color: rgba(18, 18, 18, 0.5);
   line-height: 1;
+  white-space: nowrap;
+}
+
+.pow-badge__divider {
+  flex: 1;
+  height: 1px;
+  background: rgba(18, 18, 18, 0.14);
 }
 
 .pow-badge__name {
-  font-size: 1.1rem;
+  font-size: 0.72rem;
   font-weight: 900;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
-  color: #cc0000;
+  color: #D02020;
   line-height: 1;
-  font-style: italic;
-  -webkit-text-stroke: 1.5px #0d0d0d;
-  text-shadow: 2px 2px 0 rgba(0, 0, 0, 0.15);
+  white-space: nowrap;
 }
 
-@keyframes pow-pop {
-  0%   { transform: scale(0.1) rotate(-22deg); opacity: 0; }
-  55%  { transform: scale(1.12) rotate(6deg);  opacity: 1; }
-  78%  { transform: scale(0.95) rotate(-2deg); }
-  100% { transform: scale(1)    rotate(0deg);  opacity: 1; }
-}
-
-@keyframes pow-wobble {
-  0%,  100% { transform: scale(1)    rotate(0deg);   }
-  28%        { transform: scale(1.05) rotate(2.5deg); }
-  65%        { transform: scale(0.97) rotate(-1.5deg); }
+@keyframes pow-slide-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
 }
 
 @media (max-width: 768px) {
