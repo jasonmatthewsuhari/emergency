@@ -2,7 +2,7 @@
 
 import dynamic from 'next/dynamic'
 import { useSearchParams } from 'next/navigation'
-import { useState } from 'react'
+import { Suspense, useState } from 'react'
 
 const MapCanvas = dynamic(() => import('@/components/MapCanvas'), { ssr: false })
 
@@ -38,7 +38,7 @@ function readStoredMapFocus(): MapFocus | null {
   }
 }
 
-export default function MapPage() {
+function MapPageInner() {
   const params = useSearchParams()
   const [storedFocus] = useState<MapFocus | null>(() => readStoredMapFocus())
 
@@ -54,4 +54,12 @@ export default function MapPage() {
   const countryIso = mapFocus?.countryIso ?? null
 
   return <MapCanvas focusArea={focusArea} countryIso={countryIso} />
+}
+
+export default function MapPage() {
+  return (
+    <Suspense fallback={null}>
+      <MapPageInner />
+    </Suspense>
+  )
 }
