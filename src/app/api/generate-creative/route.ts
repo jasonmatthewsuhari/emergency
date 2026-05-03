@@ -5,6 +5,7 @@ export const maxDuration = 300
 
 const ANTHROPIC_API_URL = 'https://api.anthropic.com/v1/messages'
 const WAVESPEED_BASE = 'https://api.wavespeed.ai/api/v3'
+const OPENAI_API_URL = 'https://api.openai.com/v1/images/generations'
 
 interface GenerateCreativeRequest {
   brief: CompanyBrief
@@ -64,23 +65,24 @@ function cleanProviderPrompt(prompt: string): string {
 
 function buildFallbackPrompt(brief: CompanyBrief, widthM: number, heightM: number, mode: 'image' | 'video'): string {
   const orientation = widthM > heightM ? 'landscape' : widthM < heightM ? 'portrait' : 'square'
-  const negativeSpace = widthM > heightM ? 'right half' : 'lower third'
+  const negZone = widthM > heightM ? 'right third' : 'bottom quarter'
   const brandColor = brief.visualSystem.primaryColor
     ? hexToColorName(brief.visualSystem.primaryColor)
-    : 'the primary brand color'
-  const style = brief.visualSystem.styleReference ?? 'modern premium commercial visual style'
+    : 'a deep brand color'
+  const style = brief.visualSystem.styleReference ?? 'modern premium commercial photography'
   const audience = brief.audience.description || 'the target audience'
   const message = brief.campaign.coreMessage || brief.identity.description
+  const cta = brief.campaign.callToAction ? ` with the energy of "${brief.campaign.callToAction}"` : ''
   const action = mode === 'video'
-    ? 'A subtle seamless loop with natural movement.'
-    : 'A single clear billboard-ready moment.'
+    ? 'Seamlessly looping atmospheric moment:'
+    : 'Bold striking outdoor billboard image:'
 
   return cleanProviderPrompt([
-    `${action} ${brief.identity.companyName} in ${brief.identity.industry}.`,
-    `Show the product or service benefit for ${audience}: ${message}.`,
-    `${orientation} outdoor advertising composition, ${style}, dominated by ${brandColor}.`,
-    `Keep the ${negativeSpace} as a simple uninterrupted brand-color area reserved for later design overlay.`,
-    'Avoid typography, symbols, distorted faces, clutter, watermarks, and unsafe content.',
+    `${action} ${brief.identity.companyName}, ${brief.identity.industry} brand${cta}.`,
+    `${style} visual style, ${orientation} format, dominated by ${brandColor} palette.`,
+    `Scene shows ${audience} experiencing ${message} — vivid, emotionally charged, full of energy.`,
+    `The ${negZone} of the frame is a completely flat solid ${brandColor} color field — no objects, textures, or people in that zone, reserved for text overlay.`,
+    'No typography, no letters, no logos, no symbols anywhere in the image.',
   ].join(' '))
 }
 
@@ -88,13 +90,22 @@ function isProviderRejectedError(message: string): boolean {
   return /provider rejected|request rejected|content policy|safety|moderation/i.test(message)
 }
 
-// Seedream uses "WxH" with * separator
+// gpt-image-1 (OpenAI direct) size strings
 function getBillboardImageSize(widthM: number, heightM: number): string {
   const ratio = widthM / heightM
-  if (ratio >= 1.7) return '1920*1080'
-  if (ratio >= 1.2) return '1024*768'
-  if (ratio < 0.65) return '1080*1920'
-  return '1024*1024'
+  if (ratio >= 1.2) return '1536x1024'
+  if (ratio < 0.85) return '1024x1536'
+  return '1024x1024'
+}
+
+// WaveSpeed gpt-image-2 aspect_ratio strings
+function getBillboardAspectRatio(widthM: number, heightM: number): string {
+  const ratio = widthM / heightM
+  if (ratio >= 1.7) return '16:9'
+  if (ratio >= 1.2) return '4:3'
+  if (ratio < 0.6) return '9:16'
+  if (ratio < 0.85) return '3:4'
+  return '1:1'
 }
 
 function getVideoAspectRatio(widthM: number, heightM: number): string {
@@ -110,35 +121,48 @@ async function buildPrompt(brief: CompanyBrief, widthM: number, heightM: number,
 
   const ratio = (widthM / heightM).toFixed(2)
   const orientation = widthM > heightM ? 'landscape' : widthM < heightM ? 'portrait' : 'square'
+  const negZone = widthM > heightM ? 'right third' : 'bottom quarter'
+  const negSide = widthM > heightM ? 'right side' : 'bottom'
 
-  const system = `You are a creative strategist at a top OOH agency. Your job is to find the single visual moment that makes someone feel what a brand stands for — before they read a word.
+  const system = `You are a world-class outdoor advertising creative director. You write image generation prompts that produce stunning, award-winning billboard visuals.
 
-Start with the idea, not the camera. Ask: what specific human moment, transformation, or feeling does this brand own? Then describe THAT scene concisely.
+Your prompts describe a complete visual scene with enough richness that an image model can render it without ambiguity. Great billboard art works in 3 seconds — one striking visual idea, bold color, and emotional clarity.
 
-Rules:
-- Show the brand's actual product in use, the real audience in a real moment, or the exact transformation the brand delivers. Do not invent abstract metaphors.
-- One scene, one emotion. If you need more than one sentence to explain the concept, it is too complicated for a billboard.
-- The primary brand color should be the dominant color in the image — background, environment, or light.
-- The ${widthM > heightM ? 'right half' : 'lower third'} of the frame MUST be a completely flat, solid, uninterrupted field of the primary brand color — no texture, no gradients, no people, no objects bleeding into it. This zone is where white text will be printed. If this zone is not clean, the ad fails.
-- No photography jargon (no f-stops, focal lengths, lens types, lighting setups). Describe what is IN the scene, not how it is shot.
-- For video: one looping moment that captures the brand feeling — not a story arc.
-- No text, letters, logos, or words anywhere in the image.
-- Under 80 words. Concrete nouns and active verbs only.
-- Return ONLY the prompt.`
+What you produce:
+- A vivid, specific scene description: setting, subject, action, mood, lighting, color atmosphere. Be generous with visual detail — image models render better with more specificity.
+- The brand's personality and the CTA's energy should be baked into the visual mood. If the CTA is urgent, the image should feel urgent. If it's inviting, it should feel warm.
+- Composition matters: for the designated negative space zone (where brand name, tagline, and CTA text will be overlaid later), describe a clear, uncluttered area with a flat wash of the primary brand color. Nothing should bleed into this zone.
+- The primary brand color must dominate the palette — in the background, environment, lighting, or hero element.
+
+Hard constraints (non-negotiable):
+- Zero typography, letters, words, numbers, or symbols anywhere in the image.
+- The ${negZone} of the frame is a flat, solid, uninterrupted wash of the primary brand color — no objects, people, or textures in this zone. This is where the copy will be placed.
+- No watermarks, UI elements, or anything that looks like a frame or border.
+- For video: describe a single seamlessly looping atmospheric moment, not a narrative arc.
+
+Return ONLY the prompt. No preamble, no explanation.`
+
+  const ctaLine = brief.campaign.callToAction
+    ? `Call-to-action: "${brief.campaign.callToAction}" — the image's energy and mood should amplify this message`
+    : ''
 
   const user = [
-    `Brand: ${brief.identity.companyName} — ${brief.identity.industry}`,
-    `Personality: ${brief.identity.brandAdjectives.join(', ')}`,
-    `Visual style: ${brief.visualSystem.styleReference ?? 'modern and premium'}`,
-    `Primary color: ${brief.visualSystem.primaryColor ?? 'brand-appropriate'}`,
-    `Secondary color: ${brief.visualSystem.secondaryColor ?? 'complementary'}`,
-    `Core message to evoke: ${brief.campaign.coreMessage}`,
-    brief.campaign.callToAction ? `CTA context: ${brief.campaign.callToAction}` : '',
-    `Audience: ${brief.audience.description}`,
-    `Seen while: ${brief.audience.contextWhenSeen ?? 'mixed'}`,
-    brief.visualSystem.avoidList?.length ? `Avoid: ${brief.visualSystem.avoidList.join(', ')}` : '',
-    `Generation mode: ${mode}.`,
-    `Billboard: ${orientation}, aspect ratio ${ratio}. Negative space should be on the ${widthM > heightM ? 'right side' : 'lower third'}.`,
+    `Brand: ${brief.identity.companyName} (${brief.identity.industry})`,
+    `Brand personality: ${brief.identity.brandAdjectives.join(', ')}`,
+    brief.identity.tagline ? `Tagline: "${brief.identity.tagline}"` : '',
+    brief.identity.description ? `Brand story: ${brief.identity.description}` : '',
+    `Core campaign message: ${brief.campaign.coreMessage}`,
+    ctaLine,
+    `Target audience: ${brief.audience.description}`,
+    brief.audience.contextWhenSeen ? `Viewed while: ${brief.audience.contextWhenSeen}` : '',
+    `Visual style: ${brief.visualSystem.styleReference ?? 'modern premium commercial'}`,
+    `Primary brand color: ${brief.visualSystem.primaryColor ?? 'brand-appropriate'} — dominant in the image`,
+    brief.visualSystem.secondaryColor ? `Secondary color: ${brief.visualSystem.secondaryColor} — accent use` : '',
+    brief.visualSystem.avoidList?.length ? `Do not show: ${brief.visualSystem.avoidList.join(', ')}` : '',
+    `Format: ${orientation} billboard, aspect ratio ${ratio}`,
+    `Negative space zone for copy overlay: ${negZone} of the frame — flat solid primary brand color, nothing else`,
+    `Composition: main visual subject on the ${negSide === 'right side' ? 'left two-thirds' : 'upper three-quarters'}, negative zone on the ${negSide}`,
+    mode === 'video' ? 'Output type: seamlessly looping 5-second video moment' : 'Output type: single bold billboard image',
   ].filter(Boolean).join('\n')
 
   const res = await fetch(ANTHROPIC_API_URL, {
@@ -150,7 +174,7 @@ Rules:
     },
     body: JSON.stringify({
       model: 'claude-sonnet-4-6',
-      max_tokens: 300,
+      max_tokens: 600,
       system,
       messages: [{ role: 'user', content: user }],
     }),
@@ -209,25 +233,27 @@ async function pollUntilDone(pollUrl: string, apiKey: string, timeoutMs: number)
   throw new Error('Generation timed out — WaveSpeed did not complete within the time limit')
 }
 
-async function generateImage(prompt: string, widthM: number, heightM: number): Promise<string> {
-  const apiKey = process.env.WAVESPEED_API_KEY
-  if (!apiKey) throw new Error('Missing WAVESPEED_API_KEY')
+interface OpenAIImageResponse {
+  data: Array<{ b64_json?: string; url?: string }>
+}
 
-  // Seedream v4.5: sync mode returns result immediately, no polling needed
-  const res = await fetch(`${WAVESPEED_BASE}/bytedance/seedream-v4.5`, {
+async function generateImageViaWavespeed(prompt: string, widthM: number, heightM: number, apiKey: string): Promise<string> {
+  const res = await fetch(`${WAVESPEED_BASE}/openai/gpt-image-2/text-to-image`, {
     method: 'POST',
     headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({
       prompt,
-      size: getBillboardImageSize(widthM, heightM),
-      enable_base64_output: false,
+      aspect_ratio: getBillboardAspectRatio(widthM, heightM),
+      resolution: '1k',
+      quality: 'medium',
       enable_sync_mode: true,
+      enable_base64_output: false,
     }),
   })
 
   if (!res.ok) {
     const text = await res.text()
-    throw new Error(`WaveSpeed image error ${res.status}: ${text.slice(0, 200)}`)
+    throw new Error(`WaveSpeed gpt-image-2 error ${res.status}: ${text.slice(0, 200)}`)
   }
 
   const json = await res.json() as WavespeedTaskResponse
@@ -241,12 +267,53 @@ async function generateImage(prompt: string, widthM: number, heightM: number): P
     imageUrl = await pollUntilDone(pollUrl, apiKey, 120_000)
   }
 
-  // Convert to base64 so it can be embedded directly in BillboardPlacement state
   const imgRes = await fetch(imageUrl)
   if (!imgRes.ok) throw new Error(`Failed to fetch generated image: ${imgRes.status}`)
   const buffer = await imgRes.arrayBuffer()
-  const contentType = imgRes.headers.get('content-type') ?? 'image/jpeg'
-  return `data:${contentType};base64,${Buffer.from(buffer).toString('base64')}`
+  return `data:image/png;base64,${Buffer.from(buffer).toString('base64')}`
+}
+
+async function generateImageViaOpenAI(prompt: string, widthM: number, heightM: number, apiKey: string): Promise<string> {
+  const res = await fetch(OPENAI_API_URL, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      model: 'gpt-image-1',
+      prompt,
+      size: getBillboardImageSize(widthM, heightM),
+      output_format: 'png',
+    }),
+  })
+
+  if (!res.ok) {
+    const text = await res.text()
+    throw new Error(`OpenAI image error ${res.status}: ${text.slice(0, 200)}`)
+  }
+
+  const json = await res.json() as OpenAIImageResponse
+  const item = json.data?.[0]
+  if (!item) throw new Error('No image returned from OpenAI')
+
+  if (item.b64_json) return `data:image/png;base64,${item.b64_json}`
+
+  if (item.url) {
+    const imgRes = await fetch(item.url)
+    if (!imgRes.ok) throw new Error(`Failed to fetch generated image: ${imgRes.status}`)
+    const buffer = await imgRes.arrayBuffer()
+    return `data:image/png;base64,${Buffer.from(buffer).toString('base64')}`
+  }
+
+  throw new Error('OpenAI response missing both b64_json and url')
+}
+
+async function generateImage(prompt: string, widthM: number, heightM: number): Promise<string> {
+  const wavespeedKey = process.env.WAVESPEED_API_KEY
+  if (wavespeedKey) return generateImageViaWavespeed(prompt, widthM, heightM, wavespeedKey)
+
+  const openaiKey = process.env.OPENAI_API_KEY
+  if (openaiKey) return generateImageViaOpenAI(prompt, widthM, heightM, openaiKey)
+
+  throw new Error('Missing API key: set WAVESPEED_API_KEY or OPENAI_API_KEY')
 }
 
 async function generateVideo(prompt: string, widthM: number, heightM: number): Promise<string> {
