@@ -25,7 +25,7 @@ const METERS_PER_LAT_DEGREE = 110540
 const METERS_PER_LNG_DEGREE = 111320
 const LOOP_LENGTH_M = 14
 
-const SKIN: [number, number, number, number] = [255, 201, 148, 255]
+const SKIN: [number, number, number, number] = [255, 20, 147, 255]
 const SHIRT: [number, number, number, number] = [48, 145, 255, 255]
 const PANTS: [number, number, number, number] = [5, 5, 5, 255]
 const SHADOW: [number, number, number, number] = [8, 12, 18, 105]
@@ -69,35 +69,35 @@ function buildAgentGeometry(agent: PedestrianAgent, frame: WalkFrame, elapsedSec
   const bodyLean = frame.bodyTilt * 0.24
   const headLean = frame.headTilt * 0.15
 
-  const pelvis = project(0, 0, 2.7)
-  const chest = project(0, bodyLean, 5.16)
-  const head = project(0, bodyLean + headLean, 6.42)
+  const pelvis = project(0, 0, 0.68)
+  const chest = project(0, bodyLean, 1.29)
+  const head = project(0, bodyLean + headLean, 1.61)
 
-  const leftShoulder = project(-1.08, bodyLean, 5.04)
-  const rightShoulder = project(1.08, bodyLean, 5.04)
-  const leftHand = project(-1.32, Math.sin(frame.leftArm) * 1.44, 2.94)
-  const rightHand = project(1.32, Math.sin(frame.rightArm) * 1.44, 2.94)
+  const leftShoulder = project(-0.27, bodyLean, 1.26)
+  const rightShoulder = project(0.27, bodyLean, 1.26)
+  const leftHand = project(-0.33, Math.sin(frame.leftArm) * 0.36, 0.74)
+  const rightHand = project(0.33, Math.sin(frame.rightArm) * 0.36, 0.74)
 
-  const leftHip = project(-0.6, 0, 2.7)
-  const rightHip = project(0.6, 0, 2.7)
-  const leftFoot = project(-0.66, Math.sin(frame.leftLeg) * 1.74, 0.15)
-  const rightFoot = project(0.66, Math.sin(frame.rightLeg) * 1.74, 0.15)
-  const ground = project(0, 0, 0.09)
-  const label = project(0, 0, 7.95)
+  const leftHip = project(-0.15, 0, 0.68)
+  const rightHip = project(0.15, 0, 0.68)
+  const leftFoot = project(-0.17, Math.sin(frame.leftLeg) * 0.44, 0.04)
+  const rightFoot = project(0.17, Math.sin(frame.rightLeg) * 0.44, 0.04)
+  const ground = project(0, 0, 0.02)
+  const label = project(0, 0, 2.0)
 
   const paths: AgentPath[] = [
-    { id: `${agent.id}-torso`, path: [pelvis, chest], color: SHIRT, width: 1.56 },
-    { id: `${agent.id}-left-arm`, path: [leftShoulder, leftHand], color: SHIRT, width: 0.51 },
-    { id: `${agent.id}-right-arm`, path: [rightShoulder, rightHand], color: SHIRT, width: 0.51 },
-    { id: `${agent.id}-left-leg`, path: [leftHip, leftFoot], color: PANTS, width: 0.6 },
-    { id: `${agent.id}-right-leg`, path: [rightHip, rightFoot], color: PANTS, width: 0.6 },
+    { id: `${agent.id}-torso`, path: [pelvis, chest], color: SHIRT, width: 0.39 },
+    { id: `${agent.id}-left-arm`, path: [leftShoulder, leftHand], color: SHIRT, width: 0.13 },
+    { id: `${agent.id}-right-arm`, path: [rightShoulder, rightHand], color: SHIRT, width: 0.13 },
+    { id: `${agent.id}-left-leg`, path: [leftHip, leftFoot], color: PANTS, width: 0.15 },
+    { id: `${agent.id}-right-leg`, path: [rightHip, rightFoot], color: PANTS, width: 0.15 },
   ]
 
   const points: AgentPoint[] = [
-    { id: `${agent.id}-shadow`, position: ground, color: SHADOW, radius: 2.16 },
-    { id: `${agent.id}-head`, position: head, color: SKIN, radius: 0.84 },
-    { id: `${agent.id}-left-foot`, position: leftFoot, color: PANTS, radius: 0.36 },
-    { id: `${agent.id}-right-foot`, position: rightFoot, color: PANTS, radius: 0.36 },
+    { id: `${agent.id}-shadow`, position: ground, color: SHADOW, radius: 0.54 },
+    { id: `${agent.id}-head`, position: head, color: SKIN, radius: 0.21 },
+    { id: `${agent.id}-left-foot`, position: leftFoot, color: PANTS, radius: 0.09 },
+    { id: `${agent.id}-right-foot`, position: rightFoot, color: PANTS, radius: 0.09 },
   ]
 
   const labels: AgentLabel[] = [{

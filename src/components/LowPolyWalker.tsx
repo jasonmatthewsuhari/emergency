@@ -164,7 +164,7 @@ function createPersonRig({
   root.name = name
   root.scale.setScalar(scale)
 
-  const skin = makeMaterial(0xffc994)
+  const skin = makeMaterial(0xff1493)
   const shirt = makeMaterial(randomShirtColor())
   const pants = makeMaterial(PANTS_COLOR)
 

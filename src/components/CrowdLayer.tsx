@@ -125,7 +125,7 @@ export default function CrowdLayer({
     const portraitCamera = new THREE.PerspectiveCamera(55, PIP_W / PIP_H, 0.001, 100000)
 
     const n = maxAgents
-    const skinMat   = new THREE.MeshBasicMaterial({ color: 0xffc994 })
+    const skinMat   = new THREE.MeshBasicMaterial({ color: 0xff1493 })
     const shirtMat  = new THREE.MeshBasicMaterial({ color: 0x3091ff })
     const pantsMat  = new THREE.MeshBasicMaterial({ color: 0x050505 })
     const shadowMat = new THREE.MeshBasicMaterial({ color: 0x080c12, transparent: true, opacity: 0.4 })
@@ -134,20 +134,20 @@ export default function CrowdLayer({
     const carWheelMat = new THREE.MeshBasicMaterial({ color: 0x11151c })
 
     const meshes = {
-      shadow:   new THREE.InstancedMesh(new THREE.CylinderGeometry(2.16, 2.16, 0.05, 8), shadowMat, n),
-      head:     new THREE.InstancedMesh(new THREE.SphereGeometry(0.84, 6, 4), skinMat, n),
-      torso:    new THREE.InstancedMesh(new THREE.CylinderGeometry(0.39, 0.39, 1, 5), shirtMat, n),
-      leftArm:  new THREE.InstancedMesh(new THREE.CylinderGeometry(0.255, 0.255, 1, 4), shirtMat, n),
-      rightArm: new THREE.InstancedMesh(new THREE.CylinderGeometry(0.255, 0.255, 1, 4), shirtMat, n),
-      leftLeg:  new THREE.InstancedMesh(new THREE.CylinderGeometry(0.3, 0.3, 1, 4), pantsMat, n),
-      rightLeg: new THREE.InstancedMesh(new THREE.CylinderGeometry(0.3, 0.3, 1, 4), pantsMat, n),
-      carShadow: new THREE.InstancedMesh(new THREE.CylinderGeometry(2.8, 2.8, 0.05, 8), shadowMat, n),
+      shadow:   new THREE.InstancedMesh(new THREE.CylinderGeometry(0.54, 0.54, 0.02, 8), shadowMat, n),
+      head:     new THREE.InstancedMesh(new THREE.SphereGeometry(0.21, 6, 4), skinMat, n),
+      torso:    new THREE.InstancedMesh(new THREE.CylinderGeometry(0.10, 0.10, 1, 5), shirtMat, n),
+      leftArm:  new THREE.InstancedMesh(new THREE.CylinderGeometry(0.06, 0.06, 1, 4), shirtMat, n),
+      rightArm: new THREE.InstancedMesh(new THREE.CylinderGeometry(0.06, 0.06, 1, 4), shirtMat, n),
+      leftLeg:  new THREE.InstancedMesh(new THREE.CylinderGeometry(0.08, 0.08, 1, 4), pantsMat, n),
+      rightLeg: new THREE.InstancedMesh(new THREE.CylinderGeometry(0.08, 0.08, 1, 4), pantsMat, n),
+      carShadow: new THREE.InstancedMesh(new THREE.CylinderGeometry(0.7, 0.7, 0.02, 8), shadowMat, n),
       carBody:   new THREE.InstancedMesh(new THREE.BoxGeometry(1, 1, 1), carBodyMat, n),
       carCabin:  new THREE.InstancedMesh(new THREE.BoxGeometry(1, 1, 1), carCabinMat, n),
-      carWheelFrontLeft:  new THREE.InstancedMesh(new THREE.CylinderGeometry(0.48, 0.48, 0.42, 8), carWheelMat, n),
-      carWheelFrontRight: new THREE.InstancedMesh(new THREE.CylinderGeometry(0.48, 0.48, 0.42, 8), carWheelMat, n),
-      carWheelRearLeft:   new THREE.InstancedMesh(new THREE.CylinderGeometry(0.48, 0.48, 0.42, 8), carWheelMat, n),
-      carWheelRearRight:  new THREE.InstancedMesh(new THREE.CylinderGeometry(0.48, 0.48, 0.42, 8), carWheelMat, n),
+      carWheelFrontLeft:  new THREE.InstancedMesh(new THREE.CylinderGeometry(0.12, 0.12, 0.11, 8), carWheelMat, n),
+      carWheelFrontRight: new THREE.InstancedMesh(new THREE.CylinderGeometry(0.12, 0.12, 0.11, 8), carWheelMat, n),
+      carWheelRearLeft:   new THREE.InstancedMesh(new THREE.CylinderGeometry(0.12, 0.12, 0.11, 8), carWheelMat, n),
+      carWheelRearRight:  new THREE.InstancedMesh(new THREE.CylinderGeometry(0.12, 0.12, 0.11, 8), carWheelMat, n),
     }
 
     const dummy = new THREE.Object3D()
@@ -277,18 +277,18 @@ export default function CrowdLayer({
           out.set(x, y, z)
         }
 
-        proj(vPelvis,    0,     0,                                2.7)
-        proj(vChest,     0,     bodyLean,                         5.16)
-        proj(vHead,      0,     bodyLean + headLean,              6.42)
-        proj(vLShoulder, -1.08, bodyLean,                         5.04)
-        proj(vRShoulder,  1.08, bodyLean,                         5.04)
-        proj(vLHand,     -1.32, Math.sin(frame.leftArm)  * 1.44,  2.94)
-        proj(vRHand,      1.32, Math.sin(frame.rightArm) * 1.44,  2.94)
-        proj(vLHip,      -0.6,  0,                                2.7)
-        proj(vRHip,       0.6,  0,                                2.7)
-        proj(vLFoot,     -0.66, Math.sin(frame.leftLeg)  * 1.74,  0.15)
-        proj(vRFoot,      0.66, Math.sin(frame.rightLeg) * 1.74,  0.15)
-        proj(vGround,    0,     0,                                0.09)
+        proj(vPelvis,    0,     0,                                0.68)
+        proj(vChest,     0,     bodyLean,                         1.29)
+        proj(vHead,      0,     bodyLean + headLean,              1.61)
+        proj(vLShoulder, -0.27, bodyLean,                         1.26)
+        proj(vRShoulder,  0.27, bodyLean,                         1.26)
+        proj(vLHand,     -0.33, Math.sin(frame.leftArm)  * 0.36,  0.74)
+        proj(vRHand,      0.33, Math.sin(frame.rightArm) * 0.36,  0.74)
+        proj(vLHip,      -0.15, 0,                                0.68)
+        proj(vRHip,       0.15, 0,                                0.68)
+        proj(vLFoot,     -0.17, Math.sin(frame.leftLeg)  * 0.44,  0.04)
+        proj(vRFoot,      0.17, Math.sin(frame.rightLeg) * 0.44,  0.04)
+        proj(vGround,    0,     0,                                0.02)
 
         const upDir = vDir.subVectors(vPelvis, vGround).normalize()
 
@@ -342,7 +342,7 @@ export default function CrowdLayer({
           }
 
           const placeWheel = (mesh: THREE.InstancedMesh, rightM: number, forwardM: number) => {
-            proj(vCarWheel, rightM, forwardM, 0.95)
+            proj(vCarWheel, rightM, forwardM, 0.24)
             dummy.position.copy(vCarWheel)
             dummy.quaternion.setFromUnitVectors(CYL_AXIS, vRight)
             dummy.scale.set(1, 1, 1)
@@ -350,20 +350,20 @@ export default function CrowdLayer({
             mesh.setMatrixAt(i, dummy.matrix)
           }
 
-          proj(vCarCenter, 0, 0, 2.8)
-          proj(vCarCabin, -0.18, -0.45, 5.0)
-          placeCarBox(meshes.carBody, vCarCenter, 3.9, 2.35, 5.7)
-          placeCarBox(meshes.carCabin, vCarCabin, 2.35, 2.15, 2.55)
-          placeWheel(meshes.carWheelFrontLeft, -1.92, 1.72)
-          placeWheel(meshes.carWheelFrontRight, 1.92, 1.72)
-          placeWheel(meshes.carWheelRearLeft, -1.92, -1.72)
-          placeWheel(meshes.carWheelRearRight, 1.92, -1.72)
+          proj(vCarCenter, 0, 0, 0.7)
+          proj(vCarCabin, -0.05, -0.11, 1.25)
+          placeCarBox(meshes.carBody, vCarCenter, 0.98, 0.59, 1.43)
+          placeCarBox(meshes.carCabin, vCarCabin, 0.59, 0.54, 0.64)
+          placeWheel(meshes.carWheelFrontLeft, -0.48, 0.43)
+          placeWheel(meshes.carWheelFrontRight, 0.48, 0.43)
+          placeWheel(meshes.carWheelRearLeft, -0.48, -0.43)
+          placeWheel(meshes.carWheelRearRight, 0.48, -0.43)
 
           if (i === focusedIdx) {
             vUpDir.copy(upDir)
             vFocusedHead.copy(vCarCabin)
-            proj(vFpvLookAt, 0, 3.4, 5.0)
-            proj(vPortraitPos, 0, -6.2, 7.2)
+            proj(vFpvLookAt, 0, 0.85, 1.25)
+            proj(vPortraitPos, 0, -1.55, 1.8)
             vPortraitLookAt.addVectors(vCarCenter, vCarCabin).multiplyScalar(0.5)
             hasPip = true
           }
@@ -377,10 +377,10 @@ export default function CrowdLayer({
         if (i === focusedIdx) {
           vUpDir.copy(upDir)
           vFocusedHead.copy(vHead)  // save before subsequent agents overwrite vHead
-          // FPV: eye = head, look-at = 2m ahead at same eye level
-          proj(vFpvLookAt, 0, bodyLean + headLean + 2, 6.42)
-          // Portrait: camera 4m ahead, 1.5m above head height, looking back at torso/head
-          proj(vPortraitPos, 0, bodyLean + headLean + 4, 6.42 + 1.5)
+          // FPV: eye = head, look-at = 0.5m ahead at same eye level
+          proj(vFpvLookAt, 0, bodyLean + headLean + 0.5, 1.61)
+          // Portrait: camera 1m ahead, 0.4m above head height, looking back at torso/head
+          proj(vPortraitPos, 0, bodyLean + headLean + 1, 1.61 + 0.4)
           vPortraitLookAt.addVectors(vHead, vChest).multiplyScalar(0.5)
           hasPip = true
         }
