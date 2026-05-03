@@ -3,603 +3,312 @@
 import { useEffect, useRef } from 'react'
 import type { DeckGLRef } from '@deck.gl/react'
 import * as THREE from 'three'
-import type { PedestrianAgent, WalkClip } from '@/types'
+import type { PedestrianAgent } from '@/types'
 
-const LOOP_LENGTH_M = 14
 const METERS_PER_LAT = 110540
 const METERS_PER_LNG = 111320
-const BODY_LEAN_SCALE = 0.24
-const HEAD_LEAN_SCALE = 0.15
-const BOB_SCALE = 0.96
+
+const BODY_PX = 42
+const MIN_BODY_PX = 32
+const MIN_ZOOM = 10
+const HEAD_R_PX = 5.4
+const HAIR_R_PX = 5.6
+const TORSO_R_PX = 3.4
+const LIMB_R_PX = 1.8
+const FOOT_W_PX = 3.2
+const SHADOW_R_PX = 8
+
+const STEP_FREQ = 0.5
+const LEG_SWING = 7.2
+const ARM_SWING = 4.8
+const BOB_AMP = 1.2
 
 const CYL_AXIS = new THREE.Vector3(0, 1, 0)
+const UP_AXIS = new THREE.Vector3(0, 0, 1)
 
-// PiP dimensions in CSS pixels
-const PIP_W = 240
-const PIP_H = 135
-const PIP_GAP = 8
-const PIP_MARGIN = 16
+const SHIRT_PALETTE = [
+  0xff6b6b, 0x4ecdc4, 0xfeca57, 0x54a0ff,
+  0xff9ff3, 0x5f27cd, 0x00d2d3, 0xff9f43,
+]
 
-interface CrowdLayerProps {
+const PANTS_PALETTE = [
+  0x15191f, 0x263447, 0x30323a, 0x202020,
+]
+
+const SKIN_PALETTE = [
+  0xffc994, 0xf2b178, 0x8f5f3c, 0xe0a46f,
+]
+
+const HAIR_PALETTE = [
+  0x24140f, 0x111111, 0x5a3825, 0xc79a5c,
+]
+
+interface Props {
   agents: PedestrianAgent[]
-  walkClip: WalkClip | null
+  agentSourceRef?: React.RefObject<PedestrianAgent[]>
   deckRef: React.RefObject<DeckGLRef | null>
   elapsedSeconds: number
   maxAgents?: number
-  focusedAgentIdx?: number
-  onAgentCycle?: () => void
+  agentVersion?: number
 }
 
-export default function CrowdLayer({
-  agents,
-  walkClip,
-  deckRef,
-  elapsedSeconds,
-  maxAgents = 2000,
-  focusedAgentIdx,
-  onAgentCycle,
-}: CrowdLayerProps) {
+export default function CrowdLayer({ agents, agentSourceRef, deckRef, elapsedSeconds, maxAgents = 300, agentVersion }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
-
   const agentsRef = useRef(agents)
   const elapsedRef = useRef(elapsedSeconds)
-  const walkClipRef = useRef(walkClip)
-  const focusedAgentIdxRef = useRef(focusedAgentIdx)
-  agentsRef.current = agents
-  elapsedRef.current = elapsedSeconds
-  walkClipRef.current = walkClip
-  focusedAgentIdxRef.current = focusedAgentIdx
 
-  const sceneRef = useRef<{
-    renderer: THREE.WebGLRenderer
-    scene: THREE.Scene
-    camera: THREE.Camera
-    fpvCamera: THREE.PerspectiveCamera
-    portraitCamera: THREE.PerspectiveCamera
-    meshes: {
-      shadow: THREE.InstancedMesh
-      head: THREE.InstancedMesh
-      torso: THREE.InstancedMesh
-      leftArm: THREE.InstancedMesh
-      rightArm: THREE.InstancedMesh
-      leftLeg: THREE.InstancedMesh
-      rightLeg: THREE.InstancedMesh
-      carShadow: THREE.InstancedMesh
-      carBody: THREE.InstancedMesh
-      carCabin: THREE.InstancedMesh
-      carWheelFrontLeft: THREE.InstancedMesh
-      carWheelFrontRight: THREE.InstancedMesh
-      carWheelRearLeft: THREE.InstancedMesh
-      carWheelRearRight: THREE.InstancedMesh
-    }
-    dummy: THREE.Object3D
-    vPelvis: THREE.Vector3
-    vChest: THREE.Vector3
-    vHead: THREE.Vector3
-    vLShoulder: THREE.Vector3
-    vRShoulder: THREE.Vector3
-    vLHand: THREE.Vector3
-    vRHand: THREE.Vector3
-    vLHip: THREE.Vector3
-    vRHip: THREE.Vector3
-    vLFoot: THREE.Vector3
-    vRFoot: THREE.Vector3
-    vGround: THREE.Vector3
-    vDir: THREE.Vector3
-    vMid: THREE.Vector3
-    vForward: THREE.Vector3
-    vRight: THREE.Vector3
-    vCarCenter: THREE.Vector3
-    vCarCabin: THREE.Vector3
-    vCarWheel: THREE.Vector3
-    vBoxX: THREE.Vector3
-    vBoxY: THREE.Vector3
-    vBoxZ: THREE.Vector3
-    // camera helpers — written by the focused-agent block, read by PiP render
-    vFpvLookAt: THREE.Vector3
-    vPortraitPos: THREE.Vector3
-    vPortraitLookAt: THREE.Vector3
-    vUpDir: THREE.Vector3
-    vFocusedHead: THREE.Vector3  // saved before subsequent agents overwrite vHead
-  } | null>(null)
+  useEffect(() => {
+    agentsRef.current = agents
+  }, [agents, agentVersion])
+
+  useEffect(() => {
+    elapsedRef.current = elapsedSeconds
+  }, [elapsedSeconds])
 
   useEffect(() => {
     const canvas = canvasRef.current
     if (!canvas) return
 
-    const renderer = new THREE.WebGLRenderer({
-      canvas,
-      antialias: false,
-      alpha: true,
-      powerPreference: 'low-power',
-    })
-    renderer.shadowMap.enabled = false
+    const renderer = new THREE.WebGLRenderer({ canvas, antialias: false, alpha: true, powerPreference: 'low-power' })
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
     renderer.setSize(canvas.clientWidth, canvas.clientHeight, false)
 
     const scene = new THREE.Scene()
-    const camera = new THREE.Camera()
-    camera.matrixAutoUpdate = false
-
-    const fpvCamera = new THREE.PerspectiveCamera(80, PIP_W / PIP_H, 0.001, 100000)
-    const portraitCamera = new THREE.PerspectiveCamera(55, PIP_W / PIP_H, 0.001, 100000)
+    const camera = new THREE.OrthographicCamera(
+      -canvas.clientWidth / 2,
+      canvas.clientWidth / 2,
+      canvas.clientHeight / 2,
+      -canvas.clientHeight / 2,
+      0.1,
+      1000,
+    )
+    camera.position.set(0, 0, 100)
+    camera.lookAt(0, 0, 0)
 
     const n = maxAgents
-    const skinMat   = new THREE.MeshBasicMaterial({ color: 0xff1493 })
-    const shirtMat  = new THREE.MeshBasicMaterial({ color: 0x3091ff })
-    const pantsMat  = new THREE.MeshBasicMaterial({ color: 0x050505 })
-    const shadowMat = new THREE.MeshBasicMaterial({ color: 0x080c12, transparent: true, opacity: 0.4 })
-    const carBodyMat = new THREE.MeshBasicMaterial({ color: 0xe84c3d })
-    const carCabinMat = new THREE.MeshBasicMaterial({ color: 0x78c8f2 })
-    const carWheelMat = new THREE.MeshBasicMaterial({ color: 0x11151c })
+    const headMesh = new THREE.InstancedMesh(new THREE.SphereGeometry(1, 7, 5), new THREE.MeshBasicMaterial(), n)
+    const hairMesh = new THREE.InstancedMesh(new THREE.SphereGeometry(1, 5, 4), new THREE.MeshBasicMaterial(), n)
+    const torsoMesh = new THREE.InstancedMesh(new THREE.CylinderGeometry(1, 1, 1, 5), new THREE.MeshBasicMaterial(), n)
+    const lArmMesh = new THREE.InstancedMesh(new THREE.CylinderGeometry(1, 1, 1, 4), new THREE.MeshBasicMaterial(), n)
+    const rArmMesh = new THREE.InstancedMesh(new THREE.CylinderGeometry(1, 1, 1, 4), new THREE.MeshBasicMaterial(), n)
+    const lLegMesh = new THREE.InstancedMesh(new THREE.CylinderGeometry(1, 1, 1, 4), new THREE.MeshBasicMaterial(), n)
+    const rLegMesh = new THREE.InstancedMesh(new THREE.CylinderGeometry(1, 1, 1, 4), new THREE.MeshBasicMaterial(), n)
+    const lFootMesh = new THREE.InstancedMesh(new THREE.BoxGeometry(1, 1, 1), new THREE.MeshBasicMaterial(), n)
+    const rFootMesh = new THREE.InstancedMesh(new THREE.BoxGeometry(1, 1, 1), new THREE.MeshBasicMaterial(), n)
+    const shadowMesh = new THREE.InstancedMesh(
+      new THREE.CircleGeometry(1, 8),
+      new THREE.MeshBasicMaterial({ color: 0x080c12, transparent: true, opacity: 0.3 }),
+      n,
+    )
 
-    const meshes = {
-      shadow:   new THREE.InstancedMesh(new THREE.CylinderGeometry(0.54, 0.54, 0.02, 8), shadowMat, n),
-      head:     new THREE.InstancedMesh(new THREE.SphereGeometry(0.21, 6, 4), skinMat, n),
-      torso:    new THREE.InstancedMesh(new THREE.CylinderGeometry(0.10, 0.10, 1, 5), shirtMat, n),
-      leftArm:  new THREE.InstancedMesh(new THREE.CylinderGeometry(0.06, 0.06, 1, 4), shirtMat, n),
-      rightArm: new THREE.InstancedMesh(new THREE.CylinderGeometry(0.06, 0.06, 1, 4), shirtMat, n),
-      leftLeg:  new THREE.InstancedMesh(new THREE.CylinderGeometry(0.08, 0.08, 1, 4), pantsMat, n),
-      rightLeg: new THREE.InstancedMesh(new THREE.CylinderGeometry(0.08, 0.08, 1, 4), pantsMat, n),
-      carShadow: new THREE.InstancedMesh(new THREE.CylinderGeometry(0.7, 0.7, 0.02, 8), shadowMat, n),
-      carBody:   new THREE.InstancedMesh(new THREE.BoxGeometry(1, 1, 1), carBodyMat, n),
-      carCabin:  new THREE.InstancedMesh(new THREE.BoxGeometry(1, 1, 1), carCabinMat, n),
-      carWheelFrontLeft:  new THREE.InstancedMesh(new THREE.CylinderGeometry(0.12, 0.12, 0.11, 8), carWheelMat, n),
-      carWheelFrontRight: new THREE.InstancedMesh(new THREE.CylinderGeometry(0.12, 0.12, 0.11, 8), carWheelMat, n),
-      carWheelRearLeft:   new THREE.InstancedMesh(new THREE.CylinderGeometry(0.12, 0.12, 0.11, 8), carWheelMat, n),
-      carWheelRearRight:  new THREE.InstancedMesh(new THREE.CylinderGeometry(0.12, 0.12, 0.11, 8), carWheelMat, n),
+    const col = new THREE.Color()
+    for (let i = 0; i < n; i++) {
+      col.setHex(SHIRT_PALETTE[i % SHIRT_PALETTE.length])
+      torsoMesh.setColorAt(i, col)
+      lArmMesh.setColorAt(i, col)
+      rArmMesh.setColorAt(i, col)
+
+      col.setHex(PANTS_PALETTE[i % PANTS_PALETTE.length])
+      lLegMesh.setColorAt(i, col)
+      rLegMesh.setColorAt(i, col)
+      lFootMesh.setColorAt(i, col)
+      rFootMesh.setColorAt(i, col)
+
+      col.setHex(SKIN_PALETTE[i % SKIN_PALETTE.length])
+      headMesh.setColorAt(i, col)
+
+      col.setHex(HAIR_PALETTE[i % HAIR_PALETTE.length])
+      hairMesh.setColorAt(i, col)
+    }
+
+    const coloredMeshes = [lLegMesh, rLegMesh, lFootMesh, rFootMesh, torsoMesh, lArmMesh, rArmMesh, headMesh, hairMesh]
+    for (const mesh of coloredMeshes) mesh.instanceColor!.needsUpdate = true
+
+    const allMeshes = [shadowMesh, lLegMesh, rLegMesh, lFootMesh, rFootMesh, torsoMesh, lArmMesh, rArmMesh, headMesh, hairMesh]
+    for (const mesh of allMeshes) {
+      mesh.frustumCulled = false
+      mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage)
+      scene.add(mesh)
     }
 
     const dummy = new THREE.Object3D()
     dummy.scale.setScalar(0)
     dummy.updateMatrix()
-    for (const mesh of Object.values(meshes)) {
-      mesh.frustumCulled = false  // instances are far from origin in Deck.gl world space
-      for (let i = 0; i < n; i++) mesh.setMatrixAt(i, dummy.matrix)
-      mesh.instanceMatrix.needsUpdate = true
-      scene.add(mesh)
+    for (let i = 0; i < n; i++) for (const mesh of allMeshes) mesh.setMatrixAt(i, dummy.matrix)
+    for (const mesh of allMeshes) mesh.instanceMatrix.needsUpdate = true
+
+    const vHead = new THREE.Vector3()
+    const vHair = new THREE.Vector3()
+    const vPelvis = new THREE.Vector3()
+    const vChest = new THREE.Vector3()
+    const vGnd = new THREE.Vector3()
+    const vLS = new THREE.Vector3()
+    const vRS = new THREE.Vector3()
+    const vLH = new THREE.Vector3()
+    const vRH = new THREE.Vector3()
+    const vLHip = new THREE.Vector3()
+    const vRHip = new THREE.Vector3()
+    const vLF = new THREE.Vector3()
+    const vRF = new THREE.Vector3()
+    const vDir = new THREE.Vector3()
+    const vMid = new THREE.Vector3()
+
+    const placeLimb = (mesh: THREE.InstancedMesh, i: number, a: THREE.Vector3, b: THREE.Vector3, radius: number) => {
+      vDir.subVectors(b, a)
+      const len = vDir.length()
+      if (len < 1e-6) return
+      vDir.divideScalar(len)
+      vMid.addVectors(a, b).multiplyScalar(0.5)
+      dummy.position.copy(vMid)
+      dummy.quaternion.setFromUnitVectors(CYL_AXIS, vDir)
+      dummy.scale.set(radius, len, radius)
+      dummy.updateMatrix()
+      mesh.setMatrixAt(i, dummy.matrix)
     }
 
-    const handleResize = () => {
+    const placeFoot = (mesh: THREE.InstancedMesh, i: number, foot: THREE.Vector3, radius: number, stride: number) => {
+      dummy.position.copy(foot)
+      dummy.quaternion.setFromAxisAngle(UP_AXIS, stride > 0 ? 0.18 : -0.18)
+      dummy.scale.set(radius, radius * 1.9, radius * 0.35)
+      dummy.updateMatrix()
+      mesh.setMatrixAt(i, dummy.matrix)
+    }
+
+    const onResize = () => {
       renderer.setSize(canvas.clientWidth, canvas.clientHeight, false)
+      camera.left = -canvas.clientWidth / 2
+      camera.right = canvas.clientWidth / 2
+      camera.top = canvas.clientHeight / 2
+      camera.bottom = -canvas.clientHeight / 2
+      camera.updateProjectionMatrix()
     }
-    window.addEventListener('resize', handleResize)
+    window.addEventListener('resize', onResize)
 
-    sceneRef.current = {
-      renderer, scene, camera, fpvCamera, portraitCamera, meshes, dummy,
-      vPelvis:    new THREE.Vector3(),
-      vChest:     new THREE.Vector3(),
-      vHead:      new THREE.Vector3(),
-      vLShoulder: new THREE.Vector3(),
-      vRShoulder: new THREE.Vector3(),
-      vLHand:     new THREE.Vector3(),
-      vRHand:     new THREE.Vector3(),
-      vLHip:      new THREE.Vector3(),
-      vRHip:      new THREE.Vector3(),
-      vLFoot:     new THREE.Vector3(),
-      vRFoot:     new THREE.Vector3(),
-      vGround:    new THREE.Vector3(),
-      vDir:       new THREE.Vector3(),
-      vMid:       new THREE.Vector3(),
-      vForward:   new THREE.Vector3(),
-      vRight:     new THREE.Vector3(),
-      vCarCenter: new THREE.Vector3(),
-      vCarCabin:  new THREE.Vector3(),
-      vCarWheel:  new THREE.Vector3(),
-      vBoxX:      new THREE.Vector3(),
-      vBoxY:      new THREE.Vector3(),
-      vBoxZ:      new THREE.Vector3(),
-      vFpvLookAt:      new THREE.Vector3(),
-      vPortraitPos:    new THREE.Vector3(),
-      vPortraitLookAt: new THREE.Vector3(),
-      vUpDir:          new THREE.Vector3(),
-      vFocusedHead:    new THREE.Vector3(),
-    }
-
-    return () => {
-      window.removeEventListener('resize', handleResize)
-      renderer.dispose()
-      sceneRef.current = null
-    }
-  }, [maxAgents])
-
-  useEffect(() => {
     let raf = 0
 
     const animate = () => {
       raf = requestAnimationFrame(animate)
-      const s = sceneRef.current
-      if (!s) return
 
-      let vp
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      let vp: any
       try {
-        vp = deckRef.current?.deck?.getViewports?.()[0]
+        const deck = (deckRef.current as { deck?: { getViewports?: () => unknown[] }, getViewports?: () => unknown[] } | null)?.deck
+          ?? deckRef.current as { getViewports?: () => unknown[] } | null
+        vp = deck?.getViewports?.()[0]
       } catch {
         return
       }
-      if (!vp) return
+      if (!vp?.project) return
 
-      const clip = walkClipRef.current
-      if (!clip) return
-
-      const agents = agentsRef.current
+      const list = agentSourceRef?.current ?? agentsRef.current
       const elapsed = elapsedRef.current
-      const focusedIdx = focusedAgentIdxRef.current
-
-      s.camera.matrixWorldInverse.fromArray(vp.viewMatrix)
-      s.camera.matrixWorld.copy(s.camera.matrixWorldInverse).invert()
-      s.camera.projectionMatrix.fromArray(vp.projectionMatrix)
-      s.camera.projectionMatrixInverse.copy(s.camera.projectionMatrix).invert()
-
-      const { dummy, meshes } = s
-      const { vPelvis, vChest, vHead, vLShoulder, vRShoulder, vLHand, vRHand,
-              vLHip, vRHip, vLFoot, vRFoot, vGround, vDir, vMid,
-              vForward, vRight, vCarCenter, vCarCabin, vCarWheel, vBoxX, vBoxY, vBoxZ,
-              vFpvLookAt, vPortraitPos, vPortraitLookAt, vUpDir, vFocusedHead } = s
-
-      const count = Math.min(agents.length, maxAgents)
-      let hasPip = false
-      dummy.scale.setScalar(0)
-      dummy.position.set(0, 0, 0)
-      dummy.quaternion.identity()
-      dummy.updateMatrix()
-      const hiddenMatrix = dummy.matrix
-
+      const count = Math.min(list.length, n)
+      const zoom = (vp.zoom ?? 15) as number
+      const viewW = (vp.width ?? canvas.clientWidth ?? 1200) as number
+      const viewH = (vp.height ?? canvas.clientHeight ?? 800) as number
+      const heightPx = zoom < MIN_ZOOM ? 0 : Math.max(MIN_BODY_PX, BODY_PX + Math.max(0, zoom - 16) * 5)
+      const radiusScale = heightPx / BODY_PX
       for (let i = 0; i < count; i++) {
-        const agent = agents[i]
-
-        const frameIdx = Math.abs(
-          Math.floor(
-            ((elapsed * agent.speedMps + agent.phaseOffsetM) / clip.durationSeconds) * clip.frames.length
-          ) % clip.frames.length
-        )
-        const frame = clip.frames[frameIdx]
-        if (!frame) continue
-
-        const loopOffset = ((elapsed * agent.speedMps + agent.phaseOffsetM) % LOOP_LENGTH_M) - LOOP_LENGTH_M / 2
-        const bobM      = Math.max(0, frame.root[1] * BOB_SCALE)
-        const bodyLean  = frame.bodyTilt * BODY_LEAN_SCALE
-        const headLean  = frame.headTilt * HEAD_LEAN_SCALE
-
-        const headingRad = agent.heading * Math.PI / 180
-        const fwdEast  =  Math.sin(headingRad)
-        const fwdNorth =  Math.cos(headingRad)
-        const rightEast  =  Math.cos(headingRad)
-        const rightNorth = -Math.sin(headingRad)
+        const agent = list[i]
         const lngScale = METERS_PER_LNG * Math.cos(agent.position.lat * Math.PI / 180)
+        const heading = agent.heading * Math.PI / 180
+        const fwdE = Math.sin(heading)
+        const fwdN = Math.cos(heading)
 
-        const proj = (out: THREE.Vector3, rM: number, fM: number, altM: number) => {
-          const east  = rightEast  * rM + fwdEast  * (fM + loopOffset)
-          const north = rightNorth * rM + fwdNorth * (fM + loopOffset)
-          const lng = agent.position.lng + east  / lngScale
-          const lat = agent.position.lat + north / METERS_PER_LAT
-          const [x, y, z] = vp.projectPosition([lng, lat, altM + bobM]) as [number, number, number]
-          out.set(x, y, z)
+        const projectScreen = (eastM: number, northM: number) => {
+          const [x, y] = vp.project([
+            agent.position.lng + eastM / lngScale,
+            agent.position.lat + northM / METERS_PER_LAT,
+            0,
+          ]) as [number, number, number]
+          return { x: x - viewW / 2, y: viewH / 2 - y }
         }
 
-        proj(vPelvis,    0,     0,                                0.68)
-        proj(vChest,     0,     bodyLean,                         1.29)
-        proj(vHead,      0,     bodyLean + headLean,              1.61)
-        proj(vLShoulder, -0.27, bodyLean,                         1.26)
-        proj(vRShoulder,  0.27, bodyLean,                         1.26)
-        proj(vLHand,     -0.33, Math.sin(frame.leftArm)  * 0.36,  0.74)
-        proj(vRHand,      0.33, Math.sin(frame.rightArm) * 0.36,  0.74)
-        proj(vLHip,      -0.15, 0,                                0.68)
-        proj(vRHip,       0.15, 0,                                0.68)
-        proj(vLFoot,     -0.17, Math.sin(frame.leftLeg)  * 0.44,  0.04)
-        proj(vRFoot,      0.17, Math.sin(frame.rightLeg) * 0.44,  0.04)
-        proj(vGround,    0,     0,                                0.02)
+        const ground = projectScreen(0, 0)
+        const forwardPoint = projectScreen(fwdE * 4, fwdN * 4)
+        let fwdX = forwardPoint.x - ground.x
+        let fwdY = forwardPoint.y - ground.y
+        const fwdLen = Math.hypot(fwdX, fwdY) || 1
+        fwdX /= fwdLen
+        fwdY /= fwdLen
+        const rightX = fwdY
+        const rightY = -fwdX
 
-        const upDir = vDir.subVectors(vPelvis, vGround).normalize()
+        const phase = elapsed * agent.speedMps * STEP_FREQ * Math.PI * 2 + agent.phaseOffsetM
+        const legFwd = Math.sin(phase) * LEG_SWING * radiusScale
+        const armFwd = -Math.sin(phase) * ARM_SWING * radiusScale
+        const bob = Math.max(0, Math.sin(phase * 2)) * BOB_AMP * radiusScale
 
-        const hideWalker = () => {
-          meshes.shadow.setMatrixAt(i, hiddenMatrix)
-          meshes.head.setMatrixAt(i, hiddenMatrix)
-          meshes.torso.setMatrixAt(i, hiddenMatrix)
-          meshes.leftArm.setMatrixAt(i, hiddenMatrix)
-          meshes.rightArm.setMatrixAt(i, hiddenMatrix)
-          meshes.leftLeg.setMatrixAt(i, hiddenMatrix)
-          meshes.rightLeg.setMatrixAt(i, hiddenMatrix)
+        const place = (out: THREE.Vector3, rightPx: number, fwdPx: number, upPx: number) => {
+          out.set(
+            ground.x + rightX * rightPx + fwdX * fwdPx,
+            ground.y + rightY * rightPx + fwdY * fwdPx + upPx + bob,
+            0,
+          )
         }
 
-        const hideCar = () => {
-          meshes.carShadow.setMatrixAt(i, hiddenMatrix)
-          meshes.carBody.setMatrixAt(i, hiddenMatrix)
-          meshes.carCabin.setMatrixAt(i, hiddenMatrix)
-          meshes.carWheelFrontLeft.setMatrixAt(i, hiddenMatrix)
-          meshes.carWheelFrontRight.setMatrixAt(i, hiddenMatrix)
-          meshes.carWheelRearLeft.setMatrixAt(i, hiddenMatrix)
-          meshes.carWheelRearRight.setMatrixAt(i, hiddenMatrix)
-        }
+        place(vGnd, 0, 0, 1)
+        place(vPelvis, 0, 0, heightPx * 0.36)
+        place(vChest, 0, 0, heightPx * 0.68)
+        place(vHead, 0, 0, heightPx * 0.86)
+        place(vHair, 0, -1.5 * radiusScale, heightPx * 0.93)
+        place(vLS, -heightPx * 0.16, 0, heightPx * 0.65)
+        place(vRS, heightPx * 0.16, 0, heightPx * 0.65)
+        place(vLH, -heightPx * 0.22, armFwd, heightPx * 0.42)
+        place(vRH, heightPx * 0.22, -armFwd, heightPx * 0.42)
+        place(vLHip, -heightPx * 0.09, 0, heightPx * 0.36)
+        place(vRHip, heightPx * 0.09, 0, heightPx * 0.36)
+        place(vLF, -heightPx * 0.1, legFwd, heightPx * 0.02)
+        place(vRF, heightPx * 0.1, -legFwd, heightPx * 0.02)
 
-        if (agent.visual === 'car') {
-          hideWalker()
-
-          proj(vForward, 0, 1, 0.09)
-          vForward.sub(vGround).normalize()
-          proj(vRight, 1, 0, 0.09)
-          vRight.sub(vGround).normalize()
-
-          dummy.position.copy(vGround)
-          dummy.quaternion.setFromUnitVectors(CYL_AXIS, upDir)
-          dummy.scale.set(1.2, 1, 0.7)
-          dummy.updateMatrix()
-          meshes.carShadow.setMatrixAt(i, dummy.matrix)
-
-          const placeCarBox = (
-            mesh: THREE.InstancedMesh,
-            center: THREE.Vector3,
-            width: number,
-            height: number,
-            length: number,
-          ) => {
-            vBoxX.copy(vRight).multiplyScalar(width)
-            vBoxY.copy(upDir).multiplyScalar(height)
-            vBoxZ.copy(vForward).multiplyScalar(length)
-            dummy.matrix.makeBasis(vBoxX, vBoxY, vBoxZ)
-            dummy.matrix.setPosition(center)
-            mesh.setMatrixAt(i, dummy.matrix)
-          }
-
-          const placeWheel = (mesh: THREE.InstancedMesh, rightM: number, forwardM: number) => {
-            proj(vCarWheel, rightM, forwardM, 0.24)
-            dummy.position.copy(vCarWheel)
-            dummy.quaternion.setFromUnitVectors(CYL_AXIS, vRight)
-            dummy.scale.set(1, 1, 1)
-            dummy.updateMatrix()
-            mesh.setMatrixAt(i, dummy.matrix)
-          }
-
-          proj(vCarCenter, 0, 0, 0.7)
-          proj(vCarCabin, -0.05, -0.11, 1.25)
-          placeCarBox(meshes.carBody, vCarCenter, 0.98, 0.59, 1.43)
-          placeCarBox(meshes.carCabin, vCarCabin, 0.59, 0.54, 0.64)
-          placeWheel(meshes.carWheelFrontLeft, -0.48, 0.43)
-          placeWheel(meshes.carWheelFrontRight, 0.48, 0.43)
-          placeWheel(meshes.carWheelRearLeft, -0.48, -0.43)
-          placeWheel(meshes.carWheelRearRight, 0.48, -0.43)
-
-          if (i === focusedIdx) {
-            vUpDir.copy(upDir)
-            vFocusedHead.copy(vCarCabin)
-            proj(vFpvLookAt, 0, 0.85, 1.25)
-            proj(vPortraitPos, 0, -1.55, 1.8)
-            vPortraitLookAt.addVectors(vCarCenter, vCarCabin).multiplyScalar(0.5)
-            hasPip = true
-          }
-
-          continue
-        }
-
-        hideCar()
-
-        // Capture camera data for the focused agent before placeLimb overwrites vDir
-        if (i === focusedIdx) {
-          vUpDir.copy(upDir)
-          vFocusedHead.copy(vHead)  // save before subsequent agents overwrite vHead
-          // FPV: eye = head, look-at = 0.5m ahead at same eye level
-          proj(vFpvLookAt, 0, bodyLean + headLean + 0.5, 1.61)
-          // Portrait: camera 1m ahead, 0.4m above head height, looking back at torso/head
-          proj(vPortraitPos, 0, bodyLean + headLean + 1, 1.61 + 0.4)
-          vPortraitLookAt.addVectors(vHead, vChest).multiplyScalar(0.5)
-          hasPip = true
-        }
-
-        dummy.position.copy(vGround)
-        dummy.quaternion.setFromUnitVectors(CYL_AXIS, upDir)
-        dummy.scale.set(1, 1, 1)
+        dummy.position.copy(vGnd)
+        dummy.quaternion.identity()
+        dummy.scale.set(SHADOW_R_PX * radiusScale, SHADOW_R_PX * 0.42 * radiusScale, 1)
         dummy.updateMatrix()
-        meshes.shadow.setMatrixAt(i, dummy.matrix)
+        shadowMesh.setMatrixAt(i, dummy.matrix)
 
         dummy.position.copy(vHead)
         dummy.quaternion.identity()
-        dummy.scale.setScalar(1)
+        dummy.scale.setScalar(HEAD_R_PX * radiusScale)
         dummy.updateMatrix()
-        meshes.head.setMatrixAt(i, dummy.matrix)
+        headMesh.setMatrixAt(i, dummy.matrix)
 
-        const placeLimb = (mesh: THREE.InstancedMesh, start: THREE.Vector3, end: THREE.Vector3) => {
-          vDir.subVectors(end, start)
-          const len = vDir.length()
-          if (len < 0.0001) return
-          vDir.divideScalar(len)
+        dummy.position.copy(vHair)
+        dummy.quaternion.identity()
+        dummy.scale.set(HAIR_R_PX * 1.04 * radiusScale, HAIR_R_PX * 0.72 * radiusScale, HAIR_R_PX * 0.5 * radiusScale)
+        dummy.updateMatrix()
+        hairMesh.setMatrixAt(i, dummy.matrix)
 
-          vMid.addVectors(start, end).multiplyScalar(0.5)
-          dummy.position.copy(vMid)
-
-          const dot = vDir.dot(CYL_AXIS)
-          if (dot < -0.9999) {
-            dummy.quaternion.setFromAxisAngle(new THREE.Vector3(1, 0, 0), Math.PI)
-          } else {
-            dummy.quaternion.setFromUnitVectors(CYL_AXIS, vDir)
-          }
-          dummy.scale.set(1, len, 1)
-          dummy.updateMatrix()
-          mesh.setMatrixAt(i, dummy.matrix)
-        }
-
-        placeLimb(meshes.torso,    vPelvis,    vChest)
-        placeLimb(meshes.leftArm,  vLShoulder, vLHand)
-        placeLimb(meshes.rightArm, vRShoulder, vRHand)
-        placeLimb(meshes.leftLeg,  vLHip,      vLFoot)
-        placeLimb(meshes.rightLeg, vRHip,      vRFoot)
+        placeLimb(torsoMesh, i, vPelvis, vChest, TORSO_R_PX * radiusScale)
+        placeLimb(lArmMesh, i, vLS, vLH, LIMB_R_PX * radiusScale)
+        placeLimb(rArmMesh, i, vRS, vRH, LIMB_R_PX * radiusScale)
+        placeLimb(lLegMesh, i, vLHip, vLF, LIMB_R_PX * radiusScale)
+        placeLimb(rLegMesh, i, vRHip, vRF, LIMB_R_PX * radiusScale)
+        placeFoot(lFootMesh, i, vLF, FOOT_W_PX * radiusScale, legFwd)
+        placeFoot(rFootMesh, i, vRF, FOOT_W_PX * radiusScale, -legFwd)
       }
 
       dummy.scale.setScalar(0)
-      dummy.position.set(0, 0, 0)
-      dummy.quaternion.identity()
       dummy.updateMatrix()
-      for (const mesh of Object.values(meshes)) {
-        for (let j = count; j < maxAgents; j++) mesh.setMatrixAt(j, dummy.matrix)
-        mesh.instanceMatrix.needsUpdate = true
-      }
+      for (let j = count; j < n; j++) for (const mesh of allMeshes) mesh.setMatrixAt(j, dummy.matrix)
+      for (const mesh of allMeshes) mesh.instanceMatrix.needsUpdate = true
 
-      // --- Rendering ---
-      // THREE.setViewport / setScissor take CSS pixel values; Three.js multiplies by pixelRatio internally.
-      const canvas = canvasRef.current!
-      const { renderer, scene, camera, fpvCamera, portraitCamera } = s
-      const cw = canvas.clientWidth
-      const ch = canvas.clientHeight
-
-      if (hasPip) {
-        // x in CSS pixels from left; y in CSS pixels from BOTTOM (WebGL origin)
-        const px  = cw - PIP_W - PIP_MARGIN
-        const py1 = PIP_MARGIN                    // portrait — lower on screen = lower WebGL y
-        const py2 = PIP_MARGIN + PIP_H + PIP_GAP  // FPV — higher on screen = higher WebGL y
-
-        // 1. Render main map overlay (full canvas, transparent background)
-        renderer.autoClear = false
-        renderer.setClearColor(0, 0)
-        renderer.clear()
-        renderer.setViewport(0, 0, cw, ch)
-        renderer.render(scene, camera)
-
-        renderer.setScissorTest(true)
-        const meterScale = Math.max(vFpvLookAt.distanceTo(vFocusedHead) / 2, 0.01)
-        const nearPlane = Math.max(meterScale * 0.2, 0.001)
-        const farPlane  = meterScale * 4000
-
-        // 2. Portrait (face cam) PiP — bottom slot
-        renderer.setScissor(px, py1, PIP_W, PIP_H)
-        renderer.setViewport(px, py1, PIP_W, PIP_H)
-        renderer.clearDepth()
-        renderer.setClearColor(0x080c14, 0.92)
-        renderer.clearColor()
-
-        portraitCamera.near = nearPlane
-        portraitCamera.far  = farPlane
-        portraitCamera.fov  = 55
-        portraitCamera.aspect = PIP_W / PIP_H
-        portraitCamera.updateProjectionMatrix()
-        portraitCamera.position.copy(vPortraitPos)
-        portraitCamera.up.copy(vUpDir)
-        portraitCamera.lookAt(vPortraitLookAt)
-        portraitCamera.updateMatrixWorld()
-        renderer.render(scene, portraitCamera)
-
-        // 3. FPV PiP — top slot
-        renderer.setScissor(px, py2, PIP_W, PIP_H)
-        renderer.setViewport(px, py2, PIP_W, PIP_H)
-        renderer.clearDepth()
-        renderer.clearColor()
-
-        fpvCamera.near = nearPlane
-        fpvCamera.far  = farPlane
-        fpvCamera.fov  = 80
-        fpvCamera.aspect = PIP_W / PIP_H
-        fpvCamera.updateProjectionMatrix()
-        fpvCamera.position.copy(vFocusedHead)
-        fpvCamera.up.copy(vUpDir)
-        fpvCamera.lookAt(vFpvLookAt)
-        fpvCamera.updateMatrixWorld()
-        renderer.render(scene, fpvCamera)
-
-        renderer.setScissorTest(false)
-        renderer.setClearColor(0, 0)
-        renderer.setViewport(0, 0, cw, ch)
-        renderer.autoClear = true
-
-      } else {
-        // Simple path: let Three.js auto-clear and render normally
-        renderer.autoClear = true
-        renderer.render(scene, camera)
-      }
+      renderer.render(scene, camera)
     }
 
-    raf = requestAnimationFrame(animate)
-    return () => cancelAnimationFrame(raf)
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+    animate()
 
-  const showPip = focusedAgentIdx !== undefined && agents.length > 0
+    return () => {
+      cancelAnimationFrame(raf)
+      window.removeEventListener('resize', onResize)
+      renderer.dispose()
+    }
+  }, [maxAgents, deckRef, agentSourceRef])
 
   return (
-    <>
-      <canvas
-        ref={canvasRef}
-        style={{
-          position: 'absolute',
-          top: 0,
-          left: 0,
-          width: '100%',
-          height: '100%',
-          pointerEvents: 'none',
-        }}
-      />
-      {showPip && (
-        <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}>
-          {/* FPV PiP — upper slot */}
-          <div style={{
-            position: 'absolute',
-            right: PIP_MARGIN,
-            bottom: PIP_MARGIN + PIP_H + PIP_GAP,
-            width: PIP_W,
-            height: PIP_H,
-            border: '1px solid rgba(73,145,255,0.45)',
-            borderRadius: 3,
-            pointerEvents: 'auto',
-            cursor: 'pointer',
-            boxShadow: '0 2px 16px rgba(0,0,0,0.6)',
-          }}
-            onClick={onAgentCycle}
-          >
-            <div style={{
-              position: 'absolute',
-              top: 0, left: 0, right: 0,
-              padding: '2px 7px',
-              background: 'rgba(8,12,20,0.82)',
-              color: 'rgba(130,185,255,0.9)',
-              fontSize: 9,
-              fontWeight: 700,
-              letterSpacing: '0.12em',
-              fontFamily: 'monospace',
-              textTransform: 'uppercase',
-              borderBottom: '1px solid rgba(73,145,255,0.3)',
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-            }}>
-              <span>POV</span>
-              <span style={{ opacity: 0.55 }}>#{(focusedAgentIdx ?? 0) + 1}</span>
-            </div>
-          </div>
-
-          {/* Portrait (face cam) PiP — lower slot */}
-          <div style={{
-            position: 'absolute',
-            right: PIP_MARGIN,
-            bottom: PIP_MARGIN,
-            width: PIP_W,
-            height: PIP_H,
-            border: '1px solid rgba(73,145,255,0.45)',
-            borderRadius: 3,
-            pointerEvents: 'auto',
-            cursor: 'pointer',
-            boxShadow: '0 2px 16px rgba(0,0,0,0.6)',
-          }}
-            onClick={onAgentCycle}
-          >
-            <div style={{
-              position: 'absolute',
-              top: 0, left: 0, right: 0,
-              padding: '2px 7px',
-              background: 'rgba(8,12,20,0.82)',
-              color: 'rgba(130,185,255,0.9)',
-              fontSize: 9,
-              fontWeight: 700,
-              letterSpacing: '0.12em',
-              fontFamily: 'monospace',
-              textTransform: 'uppercase',
-              borderBottom: '1px solid rgba(73,145,255,0.3)',
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-            }}>
-              <span>FACE CAM</span>
-              <span style={{ opacity: 0.55, fontSize: 8 }}>CLICK TO CYCLE</span>
-            </div>
-          </div>
-        </div>
-      )}
-    </>
+    <canvas
+      ref={canvasRef}
+      style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', pointerEvents: 'none', zIndex: 5 }}
+    />
   )
 }
