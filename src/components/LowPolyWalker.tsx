@@ -690,7 +690,16 @@ export default function LowPolyWalker({ externalMediaUrl, externalMediaType = 'i
     if (!billboardOnly) scene.add(createPathLine())
 
     if (billboardOnly) {
+      const orbitRadius = Math.sqrt(0 * 0 + 8.15 * 8.15)
+      const orbitY = 2.75
+      const orbitSpeed = 0.18
       const animate = () => {
+        const elapsed = clock.getElapsedTime()
+        camera.position.set(
+          Math.sin(elapsed * orbitSpeed) * orbitRadius,
+          orbitY,
+          Math.cos(elapsed * orbitSpeed) * orbitRadius,
+        )
         camera.lookAt(focus)
         renderer.render(scene, camera)
         animationId = window.requestAnimationFrame(animate)
